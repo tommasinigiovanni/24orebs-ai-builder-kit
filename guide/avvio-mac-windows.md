@@ -167,6 +167,49 @@ tmux new -s report -c ~/progetti/report-settimanale
 claude -n report
 ```
 
+## Porta la tua cartella sulla VM
+
+Sulla VM non serve tutto il computer: basta la cartella del lavoro che vuoi
+far andare avanti quando il PC è spento. Prima di copiarla togli quello che
+non puoi dare a Claude, per esempio audio di riunioni e dati di clienti: un
+file che non puoi dare a Claude non va nemmeno sulla VM.
+
+I prossimi comandi si scrivono **nel terminale del tuo computer**, non nella
+VM. Se sei ancora collegato, apri una seconda finestra. Sostituisci **IP** e
+il percorso della cartella. In `scp` la porta si indica con la `-P` maiuscola.
+
+Sul Mac:
+
+```bash
+scp -i "$HOME/.ssh/ai_builder" -o IdentitiesOnly=yes -P 2222 -r "$HOME/Documents/NOME" agente@IP:progetti/
+```
+
+Su Windows, in PowerShell:
+
+```powershell
+scp -i "$env:USERPROFILE\.ssh\ai_builder" -o IdentitiesOnly=yes -P 2222 -r "$env:USERPROFILE\Documents\NOME" agente@IP:progetti/
+```
+
+La cartella arriva in `~/progetti/` sulla VM, con lo stesso nome. Rientra in
+SSH, controlla che ci sia e apri una sessione al suo interno:
+
+```bash
+ls ~/progetti
+tmux new -s sistema -c ~/progetti/NOME
+claude -n sistema
+```
+
+Alla prima apertura in una cartella nuova Claude chiede se ti fidi di quella
+cartella. È la tua: conferma.
+
+Chiedi a Claude: «Che istruzioni trovi in questa cartella? Cosa ti serve per
+lavorare che qui non c’è?». I programmi installati sul tuo computer non
+viaggiano con la cartella: la VM ha i suoi.
+
+È una copia: da ora le cartelle sono due. Una modifica fatta sul PC non
+compare sulla VM finché non la copi di nuovo. Rilanciando il comando, i file
+con lo stesso nome sulla VM vengono sovrascritti.
+
 ## Programma e controlla il flusso
 
 Il timer è predisposto ma spento. Prima verifica il risultato manuale; poi,
@@ -197,6 +240,7 @@ Un’esecuzione già partita si ferma con `systemctl --user stop report-corso.se
 
 - **Connection refused o timeout:** verifica IP, completamento dell’installazione e firewall TCP 2222; la porta 22 non è quella del corso.
 - **Permission denied (publickey):** verifica che `-i` indichi la chiave privata sul PC e che la corrispondente chiave pubblica sia stata selezionata alla creazione. Non caricare la chiave privata sulla VM.
+- **scp cerca un file chiamato 2222:** hai scritto `-p` minuscola. In `scp` la porta vuole la `-P` maiuscola; in `ssh` resta minuscola.
 - **La dashboard non si apre:** verifica `plancia-attiva`, `sudo systemctl status session-board --no-pager`, firewall TCP 80 e 443 e `sudo journalctl -u caddy -n 30 --no-pager`.
 - **tmux non trova boss dopo un riavvio:** crea una nuova sessione, entra in `~/boss` e usa `claude -r boss`.
 - **Il kit segnala da-completare:** leggi `sudo tail -n 60 /var/log/agenti-kit-install.log`. Il docente può rilanciarlo con `sudo bash /opt/agenti-kit/install.sh`; il profilo 24ORE viene ricordato.
