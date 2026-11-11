@@ -1,0 +1,31 @@
+name: Controlli del kit pubblico
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  file-e-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Elenco pubblico e chiavi SSH
+        run: |
+          python3 tools/pubblicazione.py
+          python3 -m unittest discover -s test -p 'test_*.py' -v
+      - name: Shellcheck
+        run: shellcheck -x -s bash install.sh bin/* profili/*.sh test/*.sh
+      - name: Release riproducibile e ZIP studenti
+        run: |
+          python3 tools/crea-rilascio.py v0.0-prova
+          cp dist/24orebs-ai-builder-kit-v0.0-prova.tar.gz /tmp/prima.tar.gz
+          cp dist/guide-studenti-v0.0-prova.zip /tmp/prime-guide.zip
+          python3 tools/crea-rilascio.py v0.0-prova
+          cmp /tmp/prima.tar.gz dist/24orebs-ai-builder-kit-v0.0-prova.tar.gz
+          cmp /tmp/prime-guide.zip dist/guide-studenti-v0.0-prova.zip
+          python3 -c 'import zipfile,sys; sys.path.insert(0,"tools"); from pubblicazione import STUDENT_FILES; assert set(zipfile.ZipFile("dist/guide-studenti-v0.0-prova.zip").namelist()) == set(STUDENT_FILES)'
+      - name: Schema cloud-init
+        run: |
+          sudo apt-get install -y -q cloud-init >/dev/null
+          cloud-init schema --config-file dist/cloud-init-v0.0-prova.yaml

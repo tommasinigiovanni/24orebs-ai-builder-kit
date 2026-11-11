@@ -1,0 +1,10 @@
+# Profilo dell'utente agente (kit del corso AI Builder).
+[ -f "$HOME/.profile" ] && . "$HOME/.profile"
+export PATH="$HOME/.local/bin:$PATH"
+export LANG="${LANG:-C.UTF-8}"
+
+# All'accesso si apre la shell, con il promemoria. Non dentro tmux: lì
+# comparirebbe a ogni finestra nuova.
+if [ -z "${TMUX:-}" ]; then
+  aiuto
+fi

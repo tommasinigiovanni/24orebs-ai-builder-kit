@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# Il login di Claude con il telefono.
+#
+# Dalla console del pannello l'indirizzo del login non si copia: è troppo
+# lungo per ricopiarlo a mano. Questo comando chiede il login a Claude, mostra
+# l'indirizzo come QR da inquadrare con il telefono, aspetta il codice che dà
+# la pagina e lo passa a Claude.
+#
+# Il login gira in una sessione tmux a parte, che si chiude alla fine: così il
+# comando funziona anche prima di aver aperto tmux, e non tocca le sessioni
+# dello studente.
+#
+# Sotto il QR c'è anche l'indirizzo per intero: serve a chi entra da un
+# terminale dove si può copiare.
+#
+# Uso: qr-login-claude
+set -uo pipefail
+
+SOCKET=agenti-login
+SESSIONE=login
+CARATTERE=Uni2-VGA14
+PAGINA="claude.ai/artifact/GTNLnb5i1Xqi7F9bD16q9U"
+
+# Fletcher-16 sui byte che arrivano: quattro cifre esadecimali.
+somma_controllo() {
+  local a=0 b=0 n
+  for n in $(od -An -v -tu1); do
+    a=$(( (a + n) % 255 ))
+    b=$(( (b + a) % 255 ))
+  done
+  printf '%02x%02x' "$b" "$a"
+}
+
+# Il codice del login può arrivare in due forme. Così com'è, scritto a mano.
+# Oppure trasformato dalla pagina "Login senza telefono" in sole lettere
+# minuscole e numeri, le uniche cose che l'incolla della console non rovina:
+# "zz", il codice in base32, e quattro cifre di controllo.
+# Stampa il codice vero. Esce con 2 se la forma trasformata è arrivata rovinata.
+leggi_codice() {
+  local grezzo corpo controllo testo
+  grezzo="$(printf '%s' "$1" | tr -d '[:space:]')"
+  if [[ "$grezzo" =~ ^zz([a-z2-7]+)([0-9a-f]{4})$ ]]; then
+    corpo="${BASH_REMATCH[1]}"
+    controllo="${BASH_REMATCH[2]}"
+    while [ $(( ${#corpo} % 8 )) -ne 0 ]; do corpo="$corpo="; done
+    testo="$(printf '%s' "$corpo" | tr '[:lower:]' '[:upper:]' | base32 -d 2>/dev/null)" || return 2
+    [ -n "$testo" ] || return 2
+    [ "$(printf '%s' "$testo" | somma_controllo)" = "$controllo" ] || return 2
+    printf '%s' "$testo"
+    return 0
+  fi
+  printf '%s' "$grezzo"
+}
+
+login_fatto() {
+  [ "$(claude auth status --json 2>/dev/null | jq -r '.loggedIn // false' 2>/dev/null)" = true ]
+}
+
+# Da quando il login riesce sulla macchina c'è un'AI che gira come agente:
+# la password con cui agente è nato non deve più essere leggibile.
+togli_password_iniziale() {
+  if [ -e "$HOME/.password-iniziale" ]; then
+    rm -f "$HOME/.password-iniziale"
+    echo "La password di agente non compare più nel promemoria. Se non l'hai annotata: su - e poi passwd agente."
+  fi
+}
+
+schermo() {
+  tmux -L "$SOCKET" capture-pane -p -J -S -200 -t "$SESSIONE" 2>/dev/null
+}
+
+chiudi() {
+  tmux -L "$SOCKET" kill-server 2>/dev/null || true
+}
+
+if login_fatto; then
+  togli_password_iniziale
+  echo "Il login è già fatto: il QR non serve."
+  exit 0
+fi
+
+trap chiudi EXIT
+chiudi
+# Finestra larga: l'indirizzo resta su poche righe, e capture-pane -J le unisce.
+if ! tmux -L "$SOCKET" new-session -d -s "$SESSIONE" -x 250 -y 50 \
+    'claude auth login --claudeai; echo "USCITA=$?"; sleep 900'; then
+  echo "Non riesco a chiedere il login a Claude. Scrivilo nello docente."
+  exit 1
+fi
+
+echo "Chiedo il login a Claude, un momento..."
+indirizzo=""
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  sleep 2
+  indirizzo="$(schermo | grep -o 'https://[^[:space:]]*oauth/authorize[^[:space:]]*' | head -n 1)"
+  [ -n "$indirizzo" ] && break
+done
+
+if [ -z "$indirizzo" ]; then
+  echo "L'indirizzo del login non è comparso. Claude ha risposto così:"
+  schermo | sed '/^[[:space:]]*$/d' | tail -n 5
+  echo "Riprova fra un minuto. Se continua, scrivilo nello docente."
+  exit 1
+fi
+
+# Sulla console della macchina il QR vuole un carattere con i mezzi blocchi:
+# quello di serie al loro posto disegna dei cancelletti. Il kit lo imposta
+# all'installazione; qui lo si rimette, per sicurezza. Dentro tmux non si
+# può, e non serve: si prova e si va avanti.
+if [ "${TERM:-}" = linux ] && [ -z "${TMUX:-}" ]; then
+  setfont "$CARATTERE" 2>/dev/null || true
+fi
+
+# A schermo pulito, perché il QR è alto e non deve scorrere via. Senza
+# colori: la console di Linux rende male quelli di ANSIUTF8. Il bordo chiaro
+# largo tre moduli serve a chi legge il QR da una foto dello schermo: sul
+# nero della console, con un bordo solo, il QR non viene riconosciuto.
+righe_qr="$(qrencode -t UTF8 -m 3 "$indirizzo" | wc -l)"
+righe_schermo="$(tput lines 2>/dev/null || echo 24)"
+colonne_schermo="$(tput cols 2>/dev/null || echo 80)"
+righe_indirizzo=$(( (${#indirizzo} + colonne_schermo - 1) / colonne_schermo ))
+clear 2>/dev/null || true
+qrencode -t UTF8 -m 3 "$indirizzo"
+echo "$indirizzo"
+if [ "$righe_schermo" -lt $((righe_qr + righe_indirizzo + 4)) ]; then
+  echo "Il QR è più alto dello schermo: ingrandisci la finestra e rilancia qr-login-claude."
+fi
+echo "Dal computer: fotografa questo QR e incollalo nella pagina $PAGINA"
+echo "  Fai il login, incolla nella stessa pagina il codice che ricevi, e incolla qui il risultato."
+echo "Dal telefono: inquadra il QR, fai il login, e scrivi qui a mano il codice che ricevi."
+
+codice=""
+for _ in 1 2 3 4 5; do
+  read -r -p "Il codice, poi Invio: " scritto
+  if [ -z "$scritto" ]; then
+    echo "Nessun codice scritto: il login non è stato fatto. Rilancia qr-login-claude."
+    exit 1
+  fi
+  if codice="$(leggi_codice "$scritto")"; then
+    break
+  fi
+  codice=""
+  echo "Il codice è arrivato rovinato: nell'incolla si è perso qualcosa. Incollalo di nuovo."
+done
+if [ -z "$codice" ]; then
+  echo "Non ci siamo riusciti. Rilancia qr-login-claude, oppure scrivi il codice a mano."
+  exit 1
+fi
+
+tmux -L "$SOCKET" send-keys -t "$SESSIONE" -l "$codice"
+tmux -L "$SOCKET" send-keys -t "$SESSIONE" Enter
+
+esito=""
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+  sleep 2
+  esito="$(schermo | grep -o 'USCITA=[0-9]*' | tail -n 1)"
+  [ -n "$esito" ] && break
+done
+
+if [ "$esito" = "USCITA=0" ] && login_fatto; then
+  togli_password_iniziale
+  echo "Login fatto. Ora puoi lanciare claude."
+  exit 0
+fi
+
+echo "Il login non è riuscito. Claude ha risposto così:"
+schermo | sed '/^[[:space:]]*$/d' | grep -v '^If the browser' | tail -n 3 | cut -c1-200
+echo "Il codice vale una volta sola: rilancia qr-login-claude, che ne prepara uno nuovo."
+exit 1

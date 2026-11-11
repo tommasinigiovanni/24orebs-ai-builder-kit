@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+# Controllo della macchina: una riga per controllo.
+# Esce con 0 solo se è tutto a posto.
+set -uo pipefail
+
+UTENTE=agente
+STATO=/var/lib/agenti-kit/stato
+SSH_KIT=/etc/ssh/sshd_config.d/00-agenti-kit.conf
+PROFILO="$(cat /etc/agenti-kit/profilo 2>/dev/null || echo 24ore)"
+da_fare=0
+
+riga() {
+  if [ "$1" = ok ]; then
+    printf '[OK]      %s\n' "$2"
+  elif [ "$1" = info ]; then
+    # Una cosa facoltativa: non conta fra quelle da fare.
+    printf '[--]      %s\n' "$2"
+  else
+    printf '[DA FARE] %s\n' "$2"
+    da_fare=$((da_fare + 1))
+  fi
+}
+
+# 1. L'installazione è finita.
+if [ ! -f "$STATO" ]; then
+  riga no "Installazione: non risulta fatta. Scrivilo nello docente."
+else
+  mancanti="$(grep 'da-completare' "$STATO" | cut -d' ' -f1 | paste -sd, -)"
+  if [ -z "$mancanti" ]; then
+    riga ok "Installazione completa"
+  else
+    riga no "Installazione: da completare ($mancanti). Scrivilo nello docente."
+  fi
+fi
+
+# 2. agente è amministratore senza password, e Claude gira come agente: il
+# guardrail è la regola di Claude Code che chiede conferma a ogni comando sudo.
+IMPOSTAZIONI="$HOME/.claude/settings.json"
+if ! sudo -n true >/dev/null 2>&1; then
+  riga no "sudo non passa: l'amministratore non è impostato come nel kit. Scrivilo nello docente."
+elif jq -e '(.permissions.ask // []) | index("Bash(sudo:*)")' "$IMPOSTAZIONI" >/dev/null 2>&1; then
+  riga ok "Amministratore: sudo è libero, e Claude chiede conferma a ogni comando sudo"
+else
+  riga no "Claude può usare sudo senza chiedere conferma: manca la regola nelle impostazioni. Scrivilo nello docente."
+fi
+# 2-bis. installa: i pacchetti di Ubuntu, senza domanda di conferma.
+if sudo -n -l /usr/local/bin/installa >/dev/null 2>&1; then
+  riga ok "installa NOME mette un pacchetto di Ubuntu: lo usa anche Claude, senza chiedere"
+else
+  riga no "installa non funziona: Claude non può installare pacchetti. Scrivilo nello docente."
+fi
+
+# 3. Claude Code c'è.
+if command -v claude >/dev/null 2>&1; then
+  riga ok "Claude Code installato ($(claude --version 2>/dev/null | awk '{print $1}'))"
+else
+  riga no "Claude Code non è installato."
+fi
+
+# 4. Il login: ne basta uno, di Claude o di Codex. L'altro è facoltativo.
+claude_dentro=no
+codex_dentro=no
+if [ "$(claude auth status --json 2>/dev/null | jq -r '.loggedIn // false' 2>/dev/null)" = true ]; then
+  claude_dentro=si
+fi
+if command -v codex >/dev/null 2>&1 && codex login status >/dev/null 2>&1; then
+  codex_dentro=si
+fi
+
+if [ "$claude_dentro" = si ]; then
+  piano="$(claude auth status --json 2>/dev/null | jq -r '.subscriptionType // "?"')"
+  riga ok "Login di Claude fatto (abbonamento: $piano)"
+elif [ "$codex_dentro" = si ]; then
+  riga info "Login di Claude non fatto. Se lo usi: qr-login-claude"
+else
+  riga no "Fai il login: qr-login-claude. Se usi solo Codex: qr-login-codex"
+fi
+
+if ! command -v codex >/dev/null 2>&1; then
+  riga no "Codex non è installato. Scrivilo nello docente."
+elif [ "$codex_dentro" = si ]; then
+  riga ok "Login di Codex fatto ($(codex --version 2>/dev/null | awk '{print $2}'))"
+else
+  riga info "Login di Codex non fatto. Se lo usi: qr-login-codex"
+fi
+
+# 4-bis. La password con cui agente è nato: leggibile solo finché sulla
+# macchina non c'è un'AI. Se un login c'è già e il file è rimasto, si toglie.
+if [ -e "$HOME/.password-iniziale" ]; then
+  if [ "$claude_dentro" = si ] || [ "$codex_dentro" = si ]; then
+    rm -f "$HOME/.password-iniziale"
+    riga ok "La password di agente non è più nel promemoria: l'ho tolta ora, il login è fatto"
+  else
+    riga info "La password di agente è nel promemoria (aiuto): annotala prima del login"
+  fi
+fi
+
+# 5. Il boss è acceso, e le altre sessioni.
+sessioni="$(tmux ls -F '#{session_name}' 2>/dev/null | paste -sd' ' -)"
+if tmux has-session -t '=boss' 2>/dev/null; then
+  riga ok "Sessioni accese: $sessioni"
+else
+  riga no "Il boss è spento. Scrivi: tmux new -s boss   poi: cd boss   poi: claude -n boss --rc (o codex)"
+fi
+
+# 6. SSH: sulla porta 2222, con la password, solo agente. Root non entra.
+if [ "$PROFILO" = 24ore ]; then
+  if grep -qx 'Port 2222' "$SSH_KIT" 2>/dev/null &&
+     grep -qx 'PasswordAuthentication no' "$SSH_KIT" 2>/dev/null &&
+     grep -qx 'PermitRootLogin prohibit-password' "$SSH_KIT" 2>/dev/null &&
+     grep -qx 'AllowUsers root agente' "$SSH_KIT" 2>/dev/null &&
+     [ -s "$HOME/.ssh/authorized_keys" ]; then
+    riga ok "SSH: porta 2222, con chiave, root e agente. Password SSH disabilitata"
+  else
+    riga no "SSH: controllare chiavi e profilo 24ORE (porta 2222, root e agente)"
+  fi
+  if [ ! -x /opt/session-board/.venv/bin/python ]; then
+    riga no "Dashboard non installata: controllare il passo plancia nel registro"
+  elif systemctl is-active --quiet session-board.service; then
+    riga ok "Dashboard attiva: $(cat /usr/local/share/agenti-kit/plancia-url 2>/dev/null)"
+  else
+    riga no "Dashboard installata: per attivarla scrivi plancia-attiva"
+  fi
+elif grep -qx 'Port 2222' "$SSH_KIT" 2>/dev/null &&
+   grep -qx 'PasswordAuthentication yes' "$SSH_KIT" 2>/dev/null &&
+   grep -qx 'PermitRootLogin no' "$SSH_KIT" 2>/dev/null &&
+   grep -qx 'AllowUsers agente' "$SSH_KIT" 2>/dev/null; then
+  chiavi=0
+  if [ -s "$HOME/.ssh/authorized_keys" ]; then
+    chiavi="$(grep -cvE '^[[:space:]]*(#|$)' "$HOME/.ssh/authorized_keys")"
+  fi
+  if [ "$chiavi" -eq 0 ]; then
+    riga ok "SSH: porta 2222, con la password, solo agente. La apri nel firewall del pannello quando ti serve"
+  else
+    riga ok "SSH: porta 2222, con la password o con una chiave, solo agente. Chiavi ammesse: $chiavi"
+  fi
+else
+  riga no "SSH non è impostato come nel kit (porta 2222, password, solo agente). Scrivilo nello docente."
+fi
+
+# 6-bis. Syncthing: facoltativo. Serve a tenere uguale una cartella fra la
+# macchina e il computer.
+if pgrep -u "$UTENTE" -x syncthing >/dev/null 2>&1; then
+  cartelle="$(syncthing cli config folders list 2>/dev/null | sed '/^$/d' | paste -sd' ' -)"
+  if [ -n "$cartelle" ]; then
+    riga ok "Syncthing acceso. Cartelle collegate: $cartelle"
+  else
+    riga ok "Syncthing acceso. Nessuna cartella collegata"
+  fi
+else
+  riga info "Syncthing spento. Serve per collegare una cartella al tuo computer: chiedilo al boss"
+fi
+
+# 7. Nessun'altra porta in ascolto verso l'esterno, TCP e UDP.
+# La 2222 è quella di SSH: la apre o la chiude il firewall del pannello.
+# Le porte di Syncthing non si contano: ne apre più d'una e cambiano, quindi
+# si riconoscono dal programma che le tiene aperte.
+# L'indirizzo può avere l'interfaccia dopo %, per esempio 127.0.0.53%lo:53.
+# In UDP restano fuori le porte dei client DHCP (68 e 546), che non accettano
+# connessioni.
+pubbliche="$( {
+    ss -H -ltnp 2>/dev/null | awk '!/\(\("syncthing",/ {print "tcp " $4}'
+    ss -H -lunp 2>/dev/null | awk '!/\(\("syncthing",/ {print "udp " $4}'
+  } | sed -E 's/%[^:]*:/:/' | awk -v profilo="$PROFILO" '
+    $2 ~ /^(127\.[0-9.]+|\[?::1\]?|\[::ffff:127\.[0-9.]+\]):[0-9]+$/ { next }
+    $1 == "tcp" && $2 ~ /:2222$/ { next }
+    profilo == "24ore" && $1 == "tcp" && $2 ~ /:(80|443)$/ { next }
+    profilo == "24ore" && $1 == "udp" && $2 ~ /:443$/ { next }
+    $1 == "udp" && $2 ~ /:(68|546)$/ { next }
+    { print $1 "/" $2 }' | paste -sd' ' -)"
+if [ -z "$pubbliche" ]; then
+  riga ok "Nessun'altra porta in ascolto verso l'esterno"
+else
+  riga no "Porte in ascolto verso l'esterno: $pubbliche"
+fi
+
+# 8. Spazio sul disco.
+uso="$(df -P / | awk 'NR == 2 {gsub("%", "", $5); print $5}')"
+if [ "${uso:-100}" -lt 90 ]; then
+  riga ok "Spazio sul disco: usato il $uso%"
+else
+  riga no "Disco quasi pieno: usato il $uso%."
+fi
+
+echo
+if [ "$da_fare" -eq 0 ]; then
+  echo "Tutto a posto."
+  exit 0
+fi
+echo "Cose da fare: $da_fare."
+exit 1

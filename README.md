@@ -1,0 +1,56 @@
+# AI Builder kit studenti
+
+Kit e guide per il corso AI Builder di 24ORE Business School.
+
+Il kit prepara una VM Ubuntu per lavorare con Claude Code: accesso SSH con
+chiave sulla porta **2222**, utente **agente**, tmux e dashboard HTTPS.
+La stessa chiave consente l’accesso come root; le operazioni quotidiane e
+Claude lavorano come agente, con sudo disponibile per gli interventi
+amministrativi e conferma prevista nelle impostazioni di Claude Code.
+
+## Da dove iniziare
+
+1. Segui la [guida Mac e Windows](guide/avvio-mac-windows.md) per creare la tua chiave SSH.
+2. Crea una VM Hetzner con immagine ufficiale Ubuntu 24.04, seleziona la chiave pubblica e incolla il [cloud-init](cloud-init.yaml).
+3. Nel firewall apri TCP 2222 per SSH, preferibilmente dal tuo IP, e TCP 80/443 per HTTPS.
+4. Attendi l’installazione ed entra via SSH come agente. Completa il login Claude.
+5. Esegui `plancia-attiva` nel terminale SSH per scegliere password della dashboard e attivare il secondo fattore.
+
+La chiave privata rimane sul tuo computer. Il cloud-init non contiene
+credenziali personali e scarica il kit da una release pubblica con SHA256
+verificato. Non occorre un account GitHub per scaricarlo sulla VM.
+
+Per i primi concetti: [schema PC, SSH, tmux e server](guide/pc-server-tmux.png).
+
+## Cosa trovi sulla macchina
+
+- Claude Code, tmux, Git e i comandi `aiuto` e `salute`.
+- Account agente con le chiavi pubbliche selezionate in Hetzner e accesso root con la stessa chiave. Autenticazione SSH con password disabilitata.
+- Dashboard portable v1.2, verificata con SHA256, eseguita come agente e raggiungibile via Caddy all’indirizzo `https://IP-con-trattini.sslip.io`.
+- Un esempio già eseguibile in `~/progetti/report-settimanale`, con dati fittizi e risultato verificabile. Il timer è predisposto ma spento.
+- Codex e Syncthing disponibili come strumenti facoltativi del kit.
+
+Password e secondo fattore della dashboard si attivano personalmente dopo
+l’installazione. Il modello Claude richiede il proprio account; l’esempio
+Python pronto non chiama modelli AI a ogni esecuzione. Hindsight e notifiche
+esterne non fanno parte di questa versione.
+
+## Download
+
+La [release candidata v1.0.0-rc1](https://github.com/tommasinigiovanni/24orebs-ai-builder-kit/releases/tag/v1.0.0-rc1)
+contiene archivio del kit, impronta SHA256, cloud-init e ZIP con le guide per
+gli studenti. Il kit è destinato a VM nuove. La versione candidata va provata
+su una VM Hetzner prima dell’utilizzo nel corso, compresi HTTPS e primo accesso MFA.
+
+## Verifiche e compilazione della release
+
+```bash
+python3 tools/pubblicazione.py
+python3 -m unittest discover -s test -p 'test_*.py' -v
+python3 tools/crea-rilascio.py v1.0.0-rc1
+```
+
+I controlli verificano l’elenco dei file pubblicabili e il contenuto degli
+archivi. La CI prova anche accesso SSH reale root/agente, rifiuto password e
+chiavi estranee, sudo, sessione tmux dopo disconnessione, seconda installazione,
+esempio programmabile e servizio dashboard come agente.

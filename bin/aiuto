@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Il promemoria della macchina: i comandi del kit e i pochi comandi chiave.
+# Lo mostra la console all'accesso; si rivede scrivendo: aiuto
+versione="$(cat /usr/local/share/agenti-kit/VERSIONE 2>/dev/null || echo 'kit')"
+profilo="$(cat /etc/agenti-kit/profilo 2>/dev/null || echo 24ore)"
+cat <<FINE
+
+La tua macchina - AI Builder ($versione)
+Sei l'utente "agente". Qui si scrivono i comandi e si preme Invio.
+
+I comandi del kit:
+  salute            controlla che la macchina sia a posto
+  qr-login-claude   il login di Claude, con il telefono
+  qr-login-codex    il login di Codex, con il telefono
+  installa NOME     installa un pacchetto di Ubuntu (lo usa anche Claude)
+  sudo COMANDO      lancia un comando da amministratore
+  aiuto             rivedi questo testo
+
+I comandi chiave:
+  tmux new -s boss      apre la sessione "boss", che resta accesa
+  tmux attach -t boss   ci rientra
+  tmux ls               elenca le sessioni accese
+  cd                    torna alla cartella di partenza
+  cd boss               da lì, entra nella cartella del boss
+  claude -n boss --rc   lancia Claude, lo chiama "boss", lo collega al telefono
+  claude -r boss --rc   riprende il boss, per esempio dopo un riavvio
+  codex                 lancia Codex nella cartella dove sei
+
+Dentro tmux: Ctrl+B e poi D per uscire lasciando tutto acceso.
+Se Ctrl+B non passa, Ctrl+A e poi D.
+
+Non sai cosa fa un comando? Chiedilo a Claude prima di lanciarlo.
+
+FINE
+if [ "$profilo" = 24ore ]; then
+  cat <<FINE
+AI Builder: accesso SSH con chiave, porta 2222, utente agente.
+La stessa chiave permette anche l'accesso come root; Claude lavora come agente.
+Per iniziare: claude auth login   poi: tmux new -s boss
+La dashboard è già installata. Attivala una volta: plancia-attiva
+Indirizzo: $(cat /usr/local/share/agenti-kit/plancia-url 2>/dev/null || echo 'installazione in corso')
+La password e il secondo fattore della dashboard si scelgono al primo accesso.
+
+FINE
+else
+  echo 'In console si scrive a mano. Il testo incollato arriva sbagliato nei simboli.'
+fi
+
+# La password con cui agente è nato: si mostra finché sulla macchina non c'è
+# un'AI. Dopo il login di Claude o di Codex il file non c'è più.
+if [ -r "$HOME/.password-iniziale" ]; then
+  cat <<FINE
+La password di agente, per entrare in SSH:
+
+    $(cat "$HOME/.password-iniziale")
+
+Annotala adesso, in un posto tuo: sparisce da qui quando fai il login di
+Claude. Per cambiarla: passwd
+
+FINE
+fi
