@@ -1,8 +1,8 @@
 #cloud-config
-# AI Builder, kit studenti, versione v1.0.0-rc1.
+# AI Builder, kit studenti, versione v1.0.
 # Seleziona in Hetzner la tua chiave pubblica insieme a questo cloud-init.
 disable_root: false
 ssh_pwauth: false
 packages: [curl, ca-certificates]
 runcmd:
-  - [bash, -c, 'set -euo pipefail; cd /root; curl -fsSL --retry 10 --retry-all-errors --retry-delay 10 --max-time 180 -o kit.tar.gz https://github.com/tommasinigiovanni/24orebs-ai-builder-kit/releases/download/v1.0.0-rc1/24orebs-ai-builder-kit-v1.0.0-rc1.tar.gz; echo "2055a006678c0391fe1886ba7ffb72784b6258af25a2cd32575071caa0410860  kit.tar.gz" | sha256sum -c -; mkdir -p /opt/agenti-kit; tar -xzf kit.tar.gz -C /opt --no-same-owner; AGENTI_PROFILO=24ore bash /opt/agenti-kit/install.sh']
+  - [bash, -c, 'set -euo pipefail; cd /root; curl -fsSL --retry 10 --retry-all-errors --retry-delay 10 --max-time 180 -o kit.tar.gz https://github.com/tommasinigiovanni/24orebs-ai-builder-kit/releases/download/v1.0/24orebs-ai-builder-kit-v1.0.tar.gz; echo "e6ce28c4d140046a28cc92536db0a8d62943af94c057bd81d436b09046a583d7  kit.tar.gz" | sha256sum -c -; mkdir -p /opt/agenti-kit; tar -xzf kit.tar.gz -C /opt --no-same-owner; AGENTI_PROFILO=24ore bash /opt/agenti-kit/install.sh']
