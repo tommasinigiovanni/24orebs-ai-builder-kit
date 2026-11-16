@@ -213,11 +213,15 @@ con lo stesso nome sulla VM vengono sovrascritti.
 ## Fai partire un lavoro da solo
 
 Da qui in avanti il lavoro sul sistema lo chiedi a Claude: tu dici cosa vuoi,
-lui propone come farlo, tu leggi e dai l’ok. Rientra nella sessione del tuo
-progetto con `tmux attach -t sistema` e scrivi a Claude, adattando la prima frase:
+lui propone come farlo, tu leggi e dai l’ok.
+
+Scegli il lavoro. Può essere quello della tua cartella, lo strumento che
+pulisce i fogli visto nel modulo sui dati, oppure l’esempio pronto in
+`~/progetti/report-settimanale`. Apri una sessione nella sua cartella e scrivi
+a Claude, adattando la prima frase al tuo lavoro:
 
 ```text
-In questa cartella c'è lo strumento che pulisce i fogli di vendita. Voglio che parta da solo ogni notte alle 2, come programma, senza una conversazione aperta. Prima dimmi cosa farai e dove scriverai il risultato, e aspetta il mio ok. Per provarlo fallo partire una volta fra due minuti. Poi scrivi nel CLAUDE.md di questa cartella cosa fa questo lavoro, quando parte e come si ferma.
+In questa cartella c'è un programma che prepara il riepilogo delle attività. Voglio che parta da solo ogni notte alle 2, come programma, senza una conversazione aperta. Prima dimmi cosa farai e dove scriverai il risultato, e aspetta il mio ok. Per provarlo fallo partire una volta fra due minuti. Poi scrivi nel CLAUDE.md di questa cartella cosa fa questo lavoro, quando parte e come si ferma.
 ```
 
 Leggi il piano prima di dire ok. tmux tiene accesa una sessione; il timer che
@@ -236,9 +240,8 @@ Per fermarlo:
 Ferma il lavoro notturno e dimmi cosa hai spento.
 ```
 
-Se non hai ancora un lavoro tuo, usa l’esempio: apri una sessione in
-`~/progetti/report-settimanale` e chiedi a Claude di attivare il timer già
-pronto del report, dopo averti detto a che ora parte.
+Per l’esempio pronto il kit ha già un timer, spento: Claude lo trova e ti
+propone di usarlo o di cambiargli orario.
 
 ## Attiva Telegram
 
@@ -266,7 +269,7 @@ Tre cose da sapere:
 Nella sessione del tuo progetto scrivi a Claude:
 
 ```text
-Quando il lavoro della notte finisce, mandami un messaggio su Telegram: finito, quanti file ha pulito, quanti errori. Se fallisce voglio saperlo lo stesso. Prima dimmi cosa cambi e aspetta il mio ok.
+Quando il lavoro della notte finisce, mandami un messaggio su Telegram con l'esito: com'è andata e se ci sono stati errori. Se fallisce voglio saperlo lo stesso. Prima dimmi cosa cambi e aspetta il mio ok.
 ```
 
 Per provare che gli avvisi arrivano, da SSH:
