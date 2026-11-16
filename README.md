@@ -40,17 +40,18 @@ Hindsight non fa parte di questa versione.
 
 ## Download
 
-La [release v1.0](https://github.com/tommasinigiovanni/24orebs-ai-builder-kit/releases/tag/v1.0)
+La [release v1.1](https://github.com/tommasinigiovanni/24orebs-ai-builder-kit/releases/tag/v1.1)
 contiene archivio del kit, impronta SHA256, cloud-init e ZIP con le guide per
-gli studenti. Il kit è destinato a VM nuove ed è stato provato su una VM
-Hetzner nuova.
+gli studenti. Il kit è destinato a VM nuove. La v1.0 è stata provata su una VM
+Hetzner nuova; la v1.1 aggiunge il gateway Telegram e ha superato le prove
+automatiche del repository.
 
 ## Verifiche e compilazione della release
 
 ```bash
 python3 tools/pubblicazione.py
 python3 -m unittest discover -s test -p 'test_*.py' -v
-python3 tools/crea-rilascio.py v1.0
+python3 tools/crea-rilascio.py v1.1
 ```
 
 I controlli verificano l’elenco dei file pubblicabili e il contenuto degli
