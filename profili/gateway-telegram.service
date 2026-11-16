@@ -1,0 +1,18 @@
+[Unit]
+Description=Gateway Telegram del corso AI Builder
+After=network-online.target
+ConditionPathExists=/home/agente/segreti/telegram.txt
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/home/agente/progetti/telegram
+Environment=PATH=/home/agente/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 /home/agente/progetti/telegram/gateway.py
+Restart=on-failure
+RestartSec=10
+UMask=0077
+
+[Install]
+WantedBy=default.target

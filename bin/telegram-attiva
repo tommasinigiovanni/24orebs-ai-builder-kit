@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Attivazione personale del gateway Telegram. Il token si incolla qui, nel
+# terminale: non passa da cloud-init, dai registri o da una conversazione.
+set -euo pipefail
+if [ "$(id -un)" != agente ]; then
+  echo "Entra via SSH come agente, poi lancia telegram-attiva."
+  exit 1
+fi
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+  echo "Serve il terminale SSH: il token si incolla lì, non in una conversazione con Claude."
+  exit 1
+fi
+programma="$HOME/progetti/telegram/gateway.py"
+if [ ! -f "$programma" ]; then
+  echo "Non trovo $programma: il kit non l'ha copiato. Controlla con: salute"
+  exit 1
+fi
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+# Un bot ha un solo lettore: il gateway resta fermo mentre si prepara la lista.
+systemctl --user stop gateway-telegram.service 2>/dev/null || true
+python3 "$programma" --attiva
+systemctl --user daemon-reload
+systemctl --user enable --now gateway-telegram.service
+sleep 2
+if systemctl --user is-active --quiet gateway-telegram.service; then
+  echo
+  echo "Gateway acceso: resta su anche quando chiudi il terminale e dopo un riavvio."
+  echo "Scrivi /stato al tuo bot. Per un avviso dalla macchina: avvisa \"testo\""
+else
+  echo "Il gateway non è partito. Il motivo è qui:"
+  echo "  journalctl --user -u gateway-telegram.service -n 20 --no-pager"
+  exit 1
+fi

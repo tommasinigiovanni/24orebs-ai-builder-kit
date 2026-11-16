@@ -15,6 +15,7 @@ amministrativi e conferma prevista nelle impostazioni di Claude Code.
 3. Nel firewall apri TCP 2222 per SSH, preferibilmente dal tuo IP, e TCP 80/443 per HTTPS.
 4. Attendi l’installazione ed entra via SSH come agente. Completa il login Claude.
 5. Esegui `plancia-attiva` nel terminale SSH per scegliere password della dashboard e attivare il secondo fattore.
+6. Quando hai il tuo bot, esegui `telegram-attiva` per collegare Telegram: il token si incolla nel terminale, senza mostrarlo.
 
 La chiave privata rimane sul tuo computer. Il cloud-init non contiene
 credenziali personali e scarica il kit da una release pubblica con SHA256
@@ -28,12 +29,14 @@ Per i primi concetti: [schema PC, SSH, tmux e server](guide/pc-server-tmux.png).
 - Account agente con le chiavi pubbliche selezionate in Hetzner e accesso root con la stessa chiave. Autenticazione SSH con password disabilitata.
 - Dashboard portable v1.2, verificata con SHA256, eseguita come agente e raggiungibile via Caddy all’indirizzo `https://IP-con-trattini.sslip.io`.
 - Un esempio già eseguibile in `~/progetti/report-settimanale`, con dati fittizi e risultato verificabile. Il timer è predisposto ma spento.
+- Un gateway Telegram già copiato in `~/progetti/telegram`, spento: risponde solo alle chat della tua lista, e il comando `avvisa "testo"` manda un messaggio dalla macchina al telefono.
 - Codex e Syncthing disponibili come strumenti facoltativi del kit.
 
 Password e secondo fattore della dashboard si attivano personalmente dopo
 l’installazione. Il modello Claude richiede il proprio account; l’esempio
-Python pronto non chiama modelli AI a ogni esecuzione. Hindsight e notifiche
-esterne non fanno parte di questa versione.
+Python pronto non chiama modelli AI a ogni esecuzione. Il token di Telegram lo
+inserisci tu al momento dell’attivazione: il kit non contiene credenziali.
+Hindsight non fa parte di questa versione.
 
 ## Download
 
@@ -53,4 +56,5 @@ python3 tools/crea-rilascio.py v1.0
 I controlli verificano l’elenco dei file pubblicabili e il contenuto degli
 archivi. La CI prova anche accesso SSH reale root/agente, rifiuto password e
 chiavi estranee, sudo, sessione tmux dopo disconnessione, seconda installazione,
-esempio programmabile e servizio dashboard come agente.
+esempio programmabile, gateway Telegram copiato e spento, servizio dashboard
+come agente. Il gateway è provato con Telegram e Claude simulati.

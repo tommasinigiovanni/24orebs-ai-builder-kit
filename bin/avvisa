@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Manda un messaggio Telegram alle chat della lista bianca, poi finisce.
+# Lo usano i lavori che girano da soli, per dire com'è andata.
+set -euo pipefail
+if [ "$#" -ne 1 ]; then
+  echo 'Uso: avvisa "testo del messaggio"'
+  exit 1
+fi
+programma="$HOME/progetti/telegram/gateway.py"
+if [ ! -f "$programma" ]; then
+  echo "Non trovo $programma: il kit non l'ha copiato. Controlla con: salute"
+  exit 1
+fi
+exec python3 "$programma" --avvisa "$1"

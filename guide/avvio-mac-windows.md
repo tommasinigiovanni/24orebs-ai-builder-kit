@@ -210,38 +210,82 @@ viaggiano con la cartella: la VM ha i suoi.
 compare sulla VM finché non la copi di nuovo. Rilanciando il comando, i file
 con lo stesso nome sulla VM vengono sovrascritti.
 
-## Programma e controlla il flusso
+## Fai partire un lavoro da solo
 
-Il timer è predisposto ma spento. Prima verifica il risultato manuale; poi,
-da una shell della VM come `agente`:
+Da qui in avanti il lavoro sul sistema lo chiedi a Claude: tu dici cosa vuoi,
+lui propone come farlo, tu leggi e dai l’ok. Rientra nella sessione del tuo
+progetto con `tmux attach -t sistema` e scrivi a Claude, adattando la prima frase:
 
-```bash
-systemctl --user daemon-reload
-systemctl --user start report-corso.service
-systemctl --user enable --now report-corso.timer
-systemctl --user list-timers report-corso.timer
+```text
+In questa cartella c'è lo strumento che pulisce i fogli di vendita. Voglio che parta da solo ogni notte alle 2, come programma, senza una conversazione aperta. Prima dimmi cosa farai e dove scriverai il risultato, e aspetta il mio ok. Per provarlo fallo partire una volta fra due minuti. Poi scrivi nel CLAUDE.md di questa cartella cosa fa questo lavoro, quando parte e come si ferma.
 ```
 
-L’orario iniziale è dal lunedì al venerdì alle **08:30**, fuso italiano.
-Concorda con Claude l’orario adatto al tuo lavoro prima di attivarlo.
-Il timer esegue il programma pronto e non richiede un abbonamento AI a ogni
-esecuzione. La dashboard mostra le sessioni tmux; l’esito di questo servizio
-si verifica nel suo registro e nel file prodotto.
+Leggi il piano prima di dire ok. tmux tiene accesa una sessione; il timer che
+Claude prepara fa partire un programma a un orario, anche senza sessioni
+aperte. Sono due cose diverse.
 
-```bash
-journalctl --user -u report-corso.service -n 30 --no-pager
-systemctl --user disable --now report-corso.timer
+Quando il lavoro è partito, controlla il risultato e non solo la partenza:
+
+```text
+Fammi vedere l'ultima esecuzione: quando è partita, com'è finita e dov'è il risultato.
 ```
 
-Il primo comando mostra il registro; il secondo interrompe la programmazione.
-Un’esecuzione già partita si ferma con `systemctl --user stop report-corso.service`.
+Per fermarlo:
+
+```text
+Ferma il lavoro notturno e dimmi cosa hai spento.
+```
+
+Se non hai ancora un lavoro tuo, usa l’esempio: apri una sessione in
+`~/progetti/report-settimanale` e chiedi a Claude di attivare il timer già
+pronto del report, dopo averti detto a che ora parte.
+
+## Attiva Telegram
+
+Il gateway Telegram è già sulla VM, spento. Ti serve un bot tuo.
+
+1. Su Telegram cerca **BotFather**, quello con la spunta blu. Scrivigli `/newbot` e scegli un nome e uno username. La riga lunga che ti risponde è il **token**: è la password del bot.
+2. Da SSH, come `agente`, **fuori dalla schermata di Claude**, esegui:
+
+```bash
+telegram-attiva
+```
+
+3. Incolla il token quando lo chiede: mentre lo incolli non si vede. Il comando lo scrive in un file che leggi solo tu.
+4. Apri Telegram e scrivi un messaggio qualsiasi al tuo bot. Il comando ti mostra chi ha scritto: se sei tu, rispondi `s`.
+5. Scrivi `/stato` al bot: ti elenca le sessioni accese.
+
+Tre cose da sapere:
+
+- **Il token non si incolla nella chat con Claude.** Quello che passa dalla conversazione resta nei suoi registri.
+- **Il bot risponde solo a chi è nella lista.** Finché la lista è vuota non risponde a nessuno, ed è giusto così.
+- **Da Telegram Claude legge e risponde.** Non cambia file e non lancia comandi.
+
+## Fatti avvisare quando il lavoro finisce
+
+Nella sessione del tuo progetto scrivi a Claude:
+
+```text
+Quando il lavoro della notte finisce, mandami un messaggio su Telegram: finito, quanti file ha pulito, quanti errori. Se fallisce voglio saperlo lo stesso. Prima dimmi cosa cambi e aspetta il mio ok.
+```
+
+Per provare che gli avvisi arrivano, da SSH:
+
+```bash
+avvisa "Prova dalla mia macchina"
+```
 
 ## Se qualcosa non va
 
 - **Connection refused o timeout:** verifica IP, completamento dell’installazione e firewall TCP 2222; la porta 22 non è quella del corso.
 - **Permission denied (publickey):** verifica che `-i` indichi la chiave privata sul PC e che la corrispondente chiave pubblica sia stata selezionata alla creazione. Non caricare la chiave privata sulla VM.
 - **scp cerca un file chiamato 2222:** hai scritto `-p` minuscola. In `scp` la porta vuole la `-P` maiuscola; in `ssh` resta minuscola.
-- **La dashboard non si apre:** verifica `plancia-attiva`, `sudo systemctl status session-board --no-pager`, firewall TCP 80 e 443 e `sudo journalctl -u caddy -n 30 --no-pager`.
+- **La dashboard non si apre:** controlla di aver completato `plancia-attiva` e che nel firewall siano aperte le porte TCP 80 e 443. Poi chiedi a Claude: «La dashboard non si apre: controlla il servizio session-board e Caddy e dimmi perché».
+- **Ctrl+B e D non funziona:** sono due gesti, non tre tasti insieme. Tieni premuto Ctrl, premi B, rilascia tutti e due, poi premi D. tmux risponde `detached`.
+- **tmux risponde duplicate session:** non è un errore, la sessione con quel nome esiste già. Guardala con `tmux ls` e rientra con `tmux attach -t boss`.
+- **Hai scritto exit dentro Claude:** quella sessione si è spenta. Da Claude non si esce: ci si stacca con Ctrl+B e D, e lui resta a lavorare. Riaprila con `claude -r boss`.
+- **Il bot non risponde:** controlla di essere nella lista rilanciando `telegram-attiva`. Se la lista è a posto, chiedi a Claude: «Il gateway Telegram non risponde: guarda il suo registro e dimmi perché».
+- **avvisa dice che manca il token:** il bot non è ancora attivato. Lancia `telegram-attiva`.
 - **tmux non trova boss dopo un riavvio:** crea una nuova sessione, entra in `~/boss` e usa `claude -r boss`.
 - **Il kit segnala da-completare:** leggi `sudo tail -n 60 /var/log/agenti-kit-install.log`. Il docente può rilanciarlo con `sudo bash /opt/agenti-kit/install.sh`; il profilo 24ORE viene ricordato.
 

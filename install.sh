@@ -473,6 +473,7 @@ passo "console" console_tty1
 if [ "$PROFILO" = 24ore ]; then
   # shellcheck source=profili/24ore.sh
   source "$KIT_DIR/profili/24ore.sh"
+  passo "telegram" telegram_24ore
   passo "plancia" plancia_24ore
 fi
 

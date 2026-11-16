@@ -40,6 +40,8 @@ Per iniziare: claude auth login   poi: tmux new -s boss
 La dashboard è già installata. Attivala una volta: plancia-attiva
 Indirizzo: $(cat /usr/local/share/agenti-kit/plancia-url 2>/dev/null || echo 'installazione in corso')
 La password e il secondo fattore della dashboard si scelgono al primo accesso.
+Telegram è già pronto, spento. Quando hai il tuo bot: telegram-attiva
+Un messaggio dalla macchina al tuo telefono: avvisa "testo"
 
 FINE
 else

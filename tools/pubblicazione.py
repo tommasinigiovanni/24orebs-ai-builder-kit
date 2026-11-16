@@ -6,6 +6,8 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_FILES = (
     'install.sh', 'bin/aiuto', 'bin/salute', 'bin/installa', 'bin/plancia-attiva',
+    'bin/telegram-attiva', 'bin/avvisa', 'profili/telegram/gateway.py',
+    'profili/gateway-telegram.service',
     'bin/qr-login-claude', 'bin/qr-login-codex', 'boss/CLAUDE.md', 'boss/AGENTS.md',
     'console/bash_profile', 'macchina/ISTRUZIONI.md', 'profili/24ore.sh',
     'profili/chiavi_ssh.py', 'profili/session-board-24ore.service',
@@ -17,7 +19,8 @@ STUDENT_FILES = ('README.md', 'guide/avvio-mac-windows.md', 'guide/pc-server-tmu
 PUBLIC_FILES = frozenset(RUNTIME_FILES + STUDENT_FILES + (
     '.gitignore', '.github/workflows/controlli.yml', '.github/workflows/24ore.yml',
     'tools/crea-rilascio.py', 'tools/cloud-init.modello.yaml', 'tools/pubblicazione.py',
-    'test/test_chiavi_ssh.py', 'test/test_pubblicazione.py', 'test/prova-24ore.sh',
+    'test/test_chiavi_ssh.py', 'test/test_pubblicazione.py', 'test/test_gateway.py',
+    'test/prova-24ore.sh',
 ))
 
 

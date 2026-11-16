@@ -121,6 +121,14 @@ if [ "$PROFILO" = 24ore ]; then
   else
     riga no "Dashboard installata: per attivarla scrivi plancia-attiva"
   fi
+  if [ ! -f "$HOME/progetti/telegram/gateway.py" ]; then
+    riga no "Gateway Telegram non copiato: controllare il passo telegram nel registro"
+  elif XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+       systemctl --user is-active --quiet gateway-telegram.service 2>/dev/null; then
+    riga ok "Gateway Telegram acceso: il bot risponde solo alle chat della lista"
+  else
+    riga info "Gateway Telegram pronto, spento: quando ti serve scrivi telegram-attiva"
+  fi
 elif grep -qx 'Port 2222' "$SSH_KIT" 2>/dev/null &&
    grep -qx 'PasswordAuthentication yes' "$SSH_KIT" 2>/dev/null &&
    grep -qx 'PermitRootLogin no' "$SSH_KIT" 2>/dev/null &&

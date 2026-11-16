@@ -35,6 +35,19 @@ ssh_prova agente@127.0.0.1 'cd progetti/report-settimanale && python3 riepilogo.
 test -s /home/agente/.config/systemd/user/report-corso.timer
 ssh_prova agente@127.0.0.1 'systemctl --user daemon-reload && systemctl --user start report-corso.service && journalctl --user -u report-corso.service -n 10 --no-pager'
 if ssh_prova agente@127.0.0.1 'systemctl --user is-enabled --quiet report-corso.timer'; then exit 1; fi
+# Gateway Telegram: copiato per agente, spento, e senza token non manda niente.
+test "$(stat -c %U:%a /home/agente/progetti/telegram/gateway.py)" = agente:600
+test "$(stat -c %U:%a /home/agente/.config/systemd/user/gateway-telegram.service)" = agente:600
+test -x /usr/local/bin/telegram-attiva
+test -x /usr/local/bin/avvisa
+test ! -e /home/agente/segreti/telegram.txt
+if ssh_prova agente@127.0.0.1 'systemctl --user is-enabled --quiet gateway-telegram.service'; then exit 1; fi
+if ssh_prova agente@127.0.0.1 'systemctl --user is-active --quiet gateway-telegram.service'; then exit 1; fi
+if ssh_prova agente@127.0.0.1 'avvisa "prova senza token"'; then exit 1; fi
+ssh_prova agente@127.0.0.1 'avvisa "prova senza token" 2>&1 || true' | grep -F 'telegram-attiva'
+# Senza terminale interattivo l'attivazione si rifiuta: il token non passa da qui.
+if ssh_prova agente@127.0.0.1 'telegram-attiva </dev/null'; then exit 1; fi
+ssh_prova agente@127.0.0.1 'salute || true' | grep -F 'Gateway Telegram pronto, spento'
 # Una chiave non selezionata non autentica nessuno dei due utenti.
 ssh-keygen -q -t ed25519 -N '' -f /tmp/chiave-estranea-24ore
 for account in agente root; do
@@ -50,6 +63,7 @@ ssh_prova agente@127.0.0.1 'tmux kill-session -t prova-24ore'
 prima="$(sha256sum /home/agente/.ssh/authorized_keys /home/agente/.config/session-board/service.env)"
 bash "$RADICE/install.sh"
 test "$prima" = "$(sha256sum /home/agente/.ssh/authorized_keys /home/agente/.config/session-board/service.env)"
+test "$(stat -c %U:%a /home/agente/progetti/telegram/gateway.py)" = agente:600
 ssh_prova agente@127.0.0.1 whoami | grep -x agente
 ssh_prova root@127.0.0.1 whoami | grep -x root
 # Attivazione con dati fittizi: mai usare credenziali personali nella CI.
@@ -72,4 +86,4 @@ done
 test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8099/)" = 302
 systemctl is-active --quiet session-board.service
 test "$(ps -o user= -p "$(systemctl show -p MainPID --value session-board.service)" | xargs)" = agente
-echo '24ORE: chiavi root/agente, sudo, tmux, seconda installazione e dashboard verificati.'
+echo '24ORE: chiavi root/agente, sudo, tmux, seconda installazione, gateway spento e dashboard verificati.'

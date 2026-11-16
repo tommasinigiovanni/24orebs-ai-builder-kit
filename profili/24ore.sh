@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 # Funzioni del profilo 24ORE, caricate da install.sh. Credenziali mai nel log.
 
+# Il gateway Telegram arriva già copiato e resta spento: lo accende lo
+# studente con telegram-attiva, quando ha il suo bot. Niente rete, niente
+# token. Un rilancio del kit non tocca il programma che lo studente ha
+# modificato né la sua lista bianca.
+telegram_24ore() {
+  local progetto="$CASA/progetti/telegram" unita="$CASA/.config/systemd/user"
+  install -d -m 700 -o "$UTENTE" -g "$UTENTE" "$progetto" || return 1
+  if [ ! -e "$progetto/gateway.py" ]; then
+    install -m 600 -o "$UTENTE" -g "$UTENTE" "$KIT_DIR/profili/telegram/gateway.py" \
+      "$progetto/gateway.py" || return 1
+  fi
+  install -d -m 700 -o "$UTENTE" -g "$UTENTE" "$CASA/.config" "$CASA/.config/systemd" "$unita" || return 1
+  if [ ! -e "$unita/gateway-telegram.service" ]; then
+    install -m 600 -o "$UTENTE" -g "$UTENTE" "$KIT_DIR/profili/gateway-telegram.service" \
+      "$unita/gateway-telegram.service" || return 1
+  fi
+  # Controllo di sintassi, senza lasciare file compilati nella cartella del kit.
+  python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' \
+    "$KIT_DIR/profili/telegram/gateway.py" || return 1
+  echo "Gateway Telegram copiato in $progetto, spento. Si attiva con: telegram-attiva"
+}
+
 plancia_24ore() {
   local versione=v1.2 impronta=7a2dbd9acc72a8ac2c7aaa0bdd9fa2364edadb0e49fef3779124680ec6a1af97
   local destinazione=/opt/session-board temporanea ip nome configurazione

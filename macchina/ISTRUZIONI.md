@@ -94,6 +94,19 @@ il comando non trova il gestore dei servizi, prima
 `export XDG_RUNTIME_DIR=/run/user/$(id -u)`). Poi controlla che sia
 acceso con `systemctl --user status NOME.service` e diglielo.
 
+## Avvisare il proprietario su Telegram
+
+Sulla macchina c'è un gateway Telegram, in `~/progetti/telegram`. Lo
+attiva lui, da SSH, con `telegram-attiva`: il token lo incolla lì e tu non
+lo vedi. Non chiederglielo e non leggere `~/segreti/telegram.txt`.
+
+Quando un lavoro che gira da solo deve dirgli com'è andata, usa il comando
+`avvisa "testo"`: manda il messaggio alle chat della sua lista e finisce.
+Funziona anche mentre il gateway è acceso. Se risponde che manca il
+token, il bot non è ancora attivato: diglielo, e digli di lanciare
+`telegram-attiva`. Un lavoro non deve fallire perché l'avviso non parte:
+scrivi l'esito anche in un file.
+
 ## Farsi raggiungere da fuori
 
 La macchina è remota: il proprietario non è seduto qui. Un indirizzo
