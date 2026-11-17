@@ -67,7 +67,7 @@ Il firewall si crea prima della VM, così la macchina nasce già protetta.
 
 1. Crea un server con immagine ufficiale **Ubuntu 24.04**. Per la prima prova usiamo questa versione; evita immagini personalizzate o snapshot.
 2. Seleziona la tua chiave nella sezione **SSH keys**.
-3. Nel campo **cloud-init** incolla il contenuto del file `cloud-init-v1.1.yaml` fornito dal docente. Usa il file della release AI Builder indicata dal docente.
+3. Nel campo **cloud-init** incolla il contenuto del file `cloud-init-v1.2.yaml` fornito dal docente. Usa il file della release AI Builder indicata dal docente.
 4. Nella sezione dei firewall seleziona quello che hai appena creato. Un firewall che non è selezionato qui non protegge la VM.
 5. Attiva il backup del fornitore se previsto per la tua esercitazione e crea il server. Hetzner fattura le risorse finché esistono, anche se il server è spento.
 6. Annota l’IPv4 pubblico e attendi l’installazione: vedere la VM accesa non significa che cloud-init abbia terminato.
@@ -121,8 +121,12 @@ sessione e dell’attivazione della dashboard è normale che segnali quei passi.
 ```bash
 tmux new -s boss
 cd ~/boss
-claude -n boss
+claude -n boss --rc
 ```
+
+Con `--rc` la stessa sessione compare anche su Claude desktop e nell’app
+Claude sul telefono, con il tuo account: è il boss che gira sulla VM, visto
+da un’altra finestra.
 
 Per uscire da tmux lasciando aperta la sessione premi **Ctrl+B**, rilascia,
 poi premi **D**. Ora puoi chiudere il collegamento con `exit` e chiudere il PC.
@@ -134,7 +138,7 @@ tmux attach -t boss
 
 tmux mantiene la sessione quando chiudi SSH. Il programma può comunque
 aspettare una tua conferma. Un riavvio della VM chiude i processi: in quel
-caso riapri tmux e riprendi la conversazione con `claude -r boss`.
+caso riapri tmux e riprendi la conversazione con `claude -r boss --rc`.
 
 ## Attiva la dashboard già installata
 
@@ -264,13 +268,13 @@ telegram-attiva
 
 3. Incolla il token quando lo chiede: mentre lo incolli non si vede. Il comando lo scrive in un file che leggi solo tu.
 4. Apri Telegram e scrivi un messaggio qualsiasi al tuo bot. Il comando ti mostra chi ha scritto: se sei tu, rispondi `s`.
-5. Scrivi `/stato` al bot: ti elenca le sessioni accese.
+5. Su Telegram, nella chat del bot, scrivi `/aiuto`: ti dice cosa puoi chiedergli. Toccando `/` vedi i comandi: `/stato` elenca le sessioni accese, `/lavori` i lavori programmati, con la prossima partenza e l’esito dell’ultima volta.
 
 Tre cose da sapere:
 
 - **Il token non si incolla nella chat con Claude.** Quello che passa dalla conversazione resta nei suoi registri.
 - **Il bot risponde solo a chi è nella lista.** Finché la lista è vuota non risponde a nessuno, ed è giusto così.
-- **Da Telegram Claude legge e risponde.** Non cambia file e non lancia comandi.
+- **Da Telegram Claude legge e risponde.** Legge i file della cartella `progetti`, per esempio l’esito di un lavoro: puoi chiedergli com’è andata. Non cambia file, non lancia comandi e non legge la cartella `segreti`. Per intervenire si usa il boss.
 
 ## Fatti avvisare quando il lavoro finisce
 
@@ -297,7 +301,7 @@ avvisa "Prova dalla mia macchina"
 - **Hai scritto exit dentro Claude:** quella sessione si è spenta. Da Claude non si esce: ci si stacca con Ctrl+B e D, e lui resta a lavorare. Riaprila con `claude -r boss`.
 - **Il bot non risponde:** controlla di essere nella lista rilanciando `telegram-attiva`. Se la lista è a posto, chiedi a Claude: «Il gateway Telegram non risponde: guarda il suo registro e dimmi perché».
 - **avvisa dice che manca il token:** il bot non è ancora attivato. Lancia `telegram-attiva`.
-- **tmux non trova boss dopo un riavvio:** crea una nuova sessione, entra in `~/boss` e usa `claude -r boss`.
+- **tmux non trova boss dopo un riavvio:** crea una nuova sessione, entra in `~/boss` e usa `claude -r boss --rc`.
 - **Il kit segnala da-completare:** leggi `sudo tail -n 60 /var/log/agenti-kit-install.log`. Il docente può rilanciarlo con `sudo bash /opt/agenti-kit/install.sh`; il profilo 24ORE viene ricordato.
 
 ## Riferimenti
