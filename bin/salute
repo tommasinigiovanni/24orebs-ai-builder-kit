@@ -23,13 +23,13 @@ riga() {
 
 # 1. L'installazione è finita.
 if [ ! -f "$STATO" ]; then
-  riga no "Installazione: non risulta fatta. Scrivilo nello docente."
+  riga no "Installazione: non risulta fatta. Scrivilo nell'applicazione del corso."
 else
   mancanti="$(grep 'da-completare' "$STATO" | cut -d' ' -f1 | paste -sd, -)"
   if [ -z "$mancanti" ]; then
     riga ok "Installazione completa"
   else
-    riga no "Installazione: da completare ($mancanti). Scrivilo nello docente."
+    riga no "Installazione: da completare ($mancanti). Scrivilo nell'applicazione del corso."
   fi
 fi
 
@@ -37,17 +37,17 @@ fi
 # guardrail è la regola di Claude Code che chiede conferma a ogni comando sudo.
 IMPOSTAZIONI="$HOME/.claude/settings.json"
 if ! sudo -n true >/dev/null 2>&1; then
-  riga no "sudo non passa: l'amministratore non è impostato come nel kit. Scrivilo nello docente."
+  riga no "sudo non passa: l'amministratore non è impostato come nel kit. Scrivilo nell'applicazione del corso."
 elif jq -e '(.permissions.ask // []) | index("Bash(sudo:*)")' "$IMPOSTAZIONI" >/dev/null 2>&1; then
   riga ok "Amministratore: sudo è libero, e Claude chiede conferma a ogni comando sudo"
 else
-  riga no "Claude può usare sudo senza chiedere conferma: manca la regola nelle impostazioni. Scrivilo nello docente."
+  riga no "Claude può usare sudo senza chiedere conferma: manca la regola nelle impostazioni. Scrivilo nell'applicazione del corso."
 fi
 # 2-bis. installa: i pacchetti di Ubuntu, senza domanda di conferma.
 if sudo -n -l /usr/local/bin/installa >/dev/null 2>&1; then
   riga ok "installa NOME mette un pacchetto di Ubuntu: lo usa anche Claude, senza chiedere"
 else
-  riga no "installa non funziona: Claude non può installare pacchetti. Scrivilo nello docente."
+  riga no "installa non funziona: Claude non può installare pacchetti. Scrivilo nell'applicazione del corso."
 fi
 
 # 3. Claude Code c'è.
@@ -71,17 +71,17 @@ if [ "$claude_dentro" = si ]; then
   piano="$(claude auth status --json 2>/dev/null | jq -r '.subscriptionType // "?"')"
   riga ok "Login di Claude fatto (abbonamento: $piano)"
 elif [ "$codex_dentro" = si ]; then
-  riga info "Login di Claude non fatto. Se lo usi: qr-login-claude"
+  riga info "Login di Claude non fatto. Se lo usi: claude auth login"
 else
-  riga no "Fai il login: qr-login-claude. Se usi solo Codex: qr-login-codex"
+  riga no "Fai il login: claude auth login. Se usi solo Codex: codex login --device-auth"
 fi
 
 if ! command -v codex >/dev/null 2>&1; then
-  riga no "Codex non è installato. Scrivilo nello docente."
+  riga no "Codex non è installato. Scrivilo nell'applicazione del corso."
 elif [ "$codex_dentro" = si ]; then
   riga ok "Login di Codex fatto ($(codex --version 2>/dev/null | awk '{print $2}'))"
 else
-  riga info "Login di Codex non fatto. Se lo usi: qr-login-codex"
+  riga info "Login di Codex non fatto. Se lo usi: codex login --device-auth"
 fi
 
 # 4-bis. La password con cui agente è nato: leggibile solo finché sulla
@@ -143,7 +143,7 @@ elif grep -qx 'Port 2222' "$SSH_KIT" 2>/dev/null &&
     riga ok "SSH: porta 2222, con la password o con una chiave, solo agente. Chiavi ammesse: $chiavi"
   fi
 else
-  riga no "SSH non è impostato come nel kit (porta 2222, password, solo agente). Scrivilo nello docente."
+  riga no "SSH non è impostato come nel kit (porta 2222, password, solo agente). Scrivilo nell'applicazione del corso."
 fi
 
 # 6-bis. Syncthing: facoltativo. Serve a tenere uguale una cartella fra la

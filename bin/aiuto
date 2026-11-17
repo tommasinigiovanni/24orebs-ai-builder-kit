@@ -3,45 +3,47 @@
 # Lo mostra la console all'accesso; si rivede scrivendo: aiuto
 versione="$(cat /usr/local/share/agenti-kit/VERSIONE 2>/dev/null || echo 'kit')"
 profilo="$(cat /etc/agenti-kit/profilo 2>/dev/null || echo 24ore)"
+comandi_corso=""
+if [ "$profilo" = 24ore ]; then
+  comandi_corso='
+  plancia-attiva    attiva la dashboard, una volta sola
+  telegram-attiva   collega il tuo bot di Telegram
+  avvisa "testo"    manda un messaggio dalla macchina al tuo telefono'
+fi
 cat <<FINE
 
 La tua macchina - AI Builder ($versione)
 Sei l'utente "agente". Qui si scrivono i comandi e si preme Invio.
 
+Per iniziare:
+  claude auth login           il login di Claude
+  codex login --device-auth   il login di Codex, se lo usi
+  tmux new -s boss            apre la sessione "boss", che resta accesa
+  cd boss                     entra nella cartella del boss
+  claude -n boss --rc         lancia Claude e lo chiama "boss": lo vedi
+                              anche su Claude desktop e sul telefono
+
 I comandi del kit:
-  salute            controlla che la macchina sia a posto
-  qr-login-claude   il login di Claude, con il telefono
-  qr-login-codex    il login di Codex, con il telefono
+  salute            controlla che la macchina sia a posto$comandi_corso
   installa NOME     installa un pacchetto di Ubuntu (lo usa anche Claude)
   sudo COMANDO      lancia un comando da amministratore
   aiuto             rivedi questo testo
 
-I comandi chiave:
-  tmux new -s boss      apre la sessione "boss", che resta accesa
-  tmux attach -t boss   ci rientra
+Le sessioni:
+  tmux attach -t boss   rientra nel boss
   tmux ls               elenca le sessioni accese
-  cd                    torna alla cartella di partenza
-  cd boss               da lì, entra nella cartella del boss
-  claude -n boss --rc   lancia Claude, lo chiama "boss", lo collega al telefono
   claude -r boss --rc   riprende il boss, per esempio dopo un riavvio
   codex                 lancia Codex nella cartella dove sei
-
-Dentro tmux: Ctrl+B e poi D per uscire lasciando tutto acceso.
-Se Ctrl+B non passa, Ctrl+A e poi D.
+  Ctrl+B e poi D        esce lasciando tutto acceso
 
 Non sai cosa fa un comando? Chiedilo a Claude prima di lanciarlo.
 
 FINE
 if [ "$profilo" = 24ore ]; then
   cat <<FINE
-AI Builder: accesso SSH con chiave, porta 2222, utente agente.
-La stessa chiave permette anche l'accesso come root; Claude lavora come agente.
-Per iniziare: claude auth login   poi: tmux new -s boss
-La dashboard è già installata. Attivala una volta: plancia-attiva
-Indirizzo: $(cat /usr/local/share/agenti-kit/plancia-url 2>/dev/null || echo 'installazione in corso')
-La password e il secondo fattore della dashboard si scelgono al primo accesso.
-Telegram è già pronto, spento. Quando hai il tuo bot: telegram-attiva
-Un messaggio dalla macchina al tuo telefono: avvisa "testo"
+Si entra con la chiave SSH, porta 2222, utente agente.
+La stessa chiave apre anche root; Claude lavora come agente.
+Dashboard: $(cat /usr/local/share/agenti-kit/plancia-url 2>/dev/null || echo 'installazione in corso')
 
 FINE
 else
