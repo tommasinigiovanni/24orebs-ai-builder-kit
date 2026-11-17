@@ -54,15 +54,23 @@ Get-Content "$env:USERPROFILE\.ssh\ai_builder.pub" | Set-Clipboard
 
 Il file `ai_builder` resta sul PC. Su Hetzner incollerai solo la chiave pubblica.
 
-## Crea la VM su Hetzner
+## Entra in Hetzner: chiave e firewall
+
+Il firewall si crea prima della VM, così la macchina nasce già protetta.
 
 1. Nel progetto Hetzner apri la sezione delle chiavi SSH, aggiungi la chiave copiata e chiamala per esempio `PC corso`.
-2. Crea un server con immagine ufficiale **Ubuntu 24.04**. Per la prima prova usiamo questa versione; evita immagini personalizzate o snapshot.
-3. Seleziona la tua chiave nella sezione **SSH keys**.
-4. Nel campo **cloud-init** incolla il contenuto del file `cloud-init-v1.1.yaml` fornito dal docente. Usa il file della release AI Builder indicata dal docente.
-5. Associa un firewall con TCP **2222** per SSH, preferibilmente dal tuo IP, e TCP **80 e 443** da Internet per HTTPS e certificato della dashboard.
-6. Attiva il backup del fornitore se previsto per la tua esercitazione e crea il server. Hetzner fattura le risorse finché esistono, anche se il server è spento.
-7. Annota l’IPv4 pubblico e attendi l’installazione: vedere la VM accesa non significa che cloud-init abbia terminato.
+2. Apri la sezione **Firewalls** e crea un firewall nuovo. Chiamalo per esempio `ai-builder`.
+3. Nelle regole in ingresso lascia solo queste tre: TCP **2222** per SSH, preferibilmente dal tuo IP, e TCP **80 e 443** da Internet per HTTPS e certificato della dashboard. Se il modulo propone altre regole, per esempio la porta 22, toglile: su questa VM SSH risponde sulla 2222.
+4. Crea il firewall. Per ora non è agganciato a nessun server: lo selezioni nel prossimo passaggio, quando crei la VM.
+
+## Crea la VM su Hetzner
+
+1. Crea un server con immagine ufficiale **Ubuntu 24.04**. Per la prima prova usiamo questa versione; evita immagini personalizzate o snapshot.
+2. Seleziona la tua chiave nella sezione **SSH keys**.
+3. Nel campo **cloud-init** incolla il contenuto del file `cloud-init-v1.1.yaml` fornito dal docente. Usa il file della release AI Builder indicata dal docente.
+4. Nella sezione dei firewall seleziona quello che hai appena creato. Un firewall che non è selezionato qui non protegge la VM.
+5. Attiva il backup del fornitore se previsto per la tua esercitazione e crea il server. Hetzner fattura le risorse finché esistono, anche se il server è spento.
+6. Annota l’IPv4 pubblico e attendi l’installazione: vedere la VM accesa non significa che cloud-init abbia terminato.
 
 Non devi incollare la chiave una seconda volta nel cloud-init: il kit
 autorizza per `agente` le chiavi pubbliche che Hetzner ha inserito per `root`.

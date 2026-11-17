@@ -11,8 +11,8 @@ amministrativi e conferma prevista nelle impostazioni di Claude Code.
 ## Da dove iniziare
 
 1. Segui la [guida Mac e Windows](guide/avvio-mac-windows.md) per creare la tua chiave SSH.
-2. Crea una VM Hetzner con immagine ufficiale Ubuntu 24.04, seleziona la chiave pubblica e incolla il [cloud-init](cloud-init.yaml).
-3. Nel firewall apri TCP 2222 per SSH, preferibilmente dal tuo IP, e TCP 80/443 per HTTPS.
+2. Su Hetzner crea un firewall con TCP 2222 per SSH, preferibilmente dal tuo IP, e TCP 80/443 per HTTPS.
+3. Crea una VM Hetzner con immagine ufficiale Ubuntu 24.04, seleziona la chiave pubblica e il firewall appena creato, e incolla il [cloud-init](cloud-init.yaml).
 4. Attendi l’installazione ed entra via SSH come agente. Completa il login Claude.
 5. Esegui `plancia-attiva` nel terminale SSH per scegliere password della dashboard e attivare il secondo fattore.
 6. Quando hai il tuo bot, esegui `telegram-attiva` per collegare Telegram: il token si incolla nel terminale, senza mostrarlo.
