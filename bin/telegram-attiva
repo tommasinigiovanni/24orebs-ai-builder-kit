@@ -25,7 +25,13 @@ sleep 2
 if systemctl --user is-active --quiet gateway-telegram.service; then
   echo
   echo "Gateway acceso: resta su anche quando chiudi il terminale e dopo un riavvio."
-  echo "Scrivi /stato al tuo bot. Per un avviso dalla macchina: avvisa \"testo\""
+  echo "Adesso su Telegram, nella chat del bot, scrivi: /aiuto"
+  echo "Per un avviso dalla macchina, qui nel terminale: avvisa \"testo\""
+  if [ "$(claude auth status --json 2>/dev/null | jq -r '.loggedIn // false' 2>/dev/null)" != true ]; then
+    echo
+    echo "Claude non ha ancora fatto il login: /stato e avvisa funzionano già,"
+    echo "le domande a Claude da Telegram dopo: claude auth login"
+  fi
 else
   echo "Il gateway non è partito. Il motivo è qui:"
   echo "  journalctl --user -u gateway-telegram.service -n 20 --no-pager"

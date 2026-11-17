@@ -29,10 +29,13 @@ File:
   ~/.config/gateway-telegram/chat-ammesse  la lista bianca: un numero di chat
                                            per riga.
 
-Comandi che puoi scrivere al bot:
+Comandi che puoi scrivere al bot (in Telegram li vedi toccando "/"):
   /stato    le sessioni accese sulla macchina
+  /lavori   i lavori programmati: quando partono e com'è andato l'ultimo
   /nuova    ricomincia la conversazione da capo
-  tutto il resto va a Claude.
+  /aiuto    cosa puoi chiedere
+  tutto il resto va a Claude, che legge i file dei tuoi progetti e
+  risponde: non cambia niente e non lancia comandi.
 
 Telegram accetta un solo lettore per bot: un solo gateway acceso per volta.
 L'avviso non legge, scrive soltanto: funziona anche mentre il gateway è acceso.
@@ -55,12 +58,47 @@ CONFIGURAZIONE = Path.home() / ".config" / "gateway-telegram"
 # Il token sta con gli altri segreti della macchina, un file per servizio.
 FILE_TOKEN = Path.home() / "segreti" / "telegram.txt"
 FILE_CHAT = CONFIGURAZIONE / "chat-ammesse"
-# La cartella dove lavora Claude quando gli scrivi da Telegram.
+# La cartella dove lavora Claude quando gli scrivi da Telegram: lì resta la
+# sua conversazione, separata da quelle delle altre sessioni.
 CARTELLA = Path(os.environ.get("GATEWAY_CARTELLA", Path.home() / "progetti" / "telegram"))
+# La cartella che Claude può leggere da Telegram: i tuoi progetti, con i
+# risultati dei lavori. Solo leggere: vedi STRUMENTI qui sotto.
+LETTURA = Path(os.environ.get("GATEWAY_LETTURA", Path.home() / "progetti"))
+# Gli strumenti che Claude ha da Telegram: leggere e cercare. Niente che
+# scriva file o lanci comandi. Allargare questa lista è una scelta tua.
+STRUMENTI = "Read,Glob,Grep"
+# I segreti restano fuori anche se un giorno cambi le cartelle.
+VIETATO = "Read(~/segreti/**)"
 ATTESA_TELEGRAM = 50  # secondi: Telegram tiene aperta la richiesta finché non arriva un messaggio
 TEMPO_MASSIMO_CLAUDE = 600  # secondi: oltre, la risposta si abbandona
 LUNGHEZZA_MASSIMA = 4000  # Telegram accetta messaggi fino a 4096 caratteri
 FORMA_TOKEN = re.compile(r"\d{6,}:[A-Za-z0-9_-]{30,}")  # numero del bot, due punti, chiave
+# I comandi del bot. Il gateway li manda a Telegram quando parte, così nella
+# chat compaiono toccando "/". Se ne aggiungi uno, scrivilo anche qui.
+COMANDI = (
+    ("stato", "Le sessioni accese sulla macchina"),
+    ("lavori", "I lavori programmati e com'è andato l'ultimo"),
+    ("nuova", "Ricomincia la conversazione da capo"),
+    ("aiuto", "Cosa puoi chiedermi"),
+)
+# Dove stanno i lavori programmati dell'utente: quelli creati sulla macchina
+# da te o da Claude, non quelli di sistema.
+LAVORI = Path.home() / ".config" / "systemd" / "user"
+AIUTO = ("Sono il bot della tua macchina. Rispondo solo a te.\n\n"
+         "/stato - le sessioni accese\n"
+         "/lavori - i lavori programmati e com'è andato l'ultimo\n"
+         "/nuova - ricomincia la conversazione da capo\n"
+         "/aiuto - rivedi questo messaggio\n\n"
+         "Tutto il resto lo leggo come una domanda: guardo i file dei tuoi progetti e ti rispondo. "
+         "Per esempio: com'è andato il lavoro di stanotte?\n\n"
+         "Non cambio file e non lancio comandi. Per intervenire usa il boss.")
+ATTESA = "Sto leggendo..."
+# Telegram mostra il testo così com'è: asterischi e accenti gravi resterebbero a vista.
+ISTRUZIONI_TELEGRAM = ("Sei il bot Telegram di questa macchina. Puoi leggere i file della cartella dei "
+                       "progetti e rispondere: non puoi cambiare file, lanciare comandi o scrivere alle "
+                       "altre sessioni. Per intervenire si usa la sessione boss, non te: se serve, dillo. "
+                       "La tua risposta arriva su Telegram come testo semplice. "
+                       "Non usare Markdown: niente asterischi, accenti gravi, titoli o tabelle.")
 
 
 def leggi_token():
@@ -116,16 +154,24 @@ def a_pezzi(testo):
 def chiedi_a_claude(testo, continua):
     """Passa il messaggio a Claude e ne restituisce la risposta.
 
-    Claude viene lanciato con -p: risponde e si chiude. In questo modo può
-    leggere i file della cartella, ma non cambia niente e non lancia comandi,
-    perché nessuno è lì a dargli il permesso.
+    Claude viene lanciato con -p: risponde e si chiude. Ha solo gli strumenti
+    per leggere e cercare, e solo nella cartella dei progetti: può dirti cosa
+    ha lasciato un lavoro, ma non cambia niente e non lancia comandi.
     """
     CARTELLA.mkdir(parents=True, exist_ok=True)
-    comando = ["claude", "-p", testo]
+    # Il messaggio passa dall'ingresso del programma, non dalla riga di
+    # comando: così un testo che comincia con un trattino resta un testo.
+    comando = ["claude", "-p", "--append-system-prompt", ISTRUZIONI_TELEGRAM,
+               "--tools", STRUMENTI, "--add-dir", str(LETTURA), "--disallowedTools", VIETATO]
     if continua:
         comando.append("--continue")
+    # Da Telegram Claude non usa i connettori del tuo account claude.ai (posta,
+    # documenti, altri servizi): un canale che riceve testi da fuori non deve
+    # avere in mano anche quelli.
+    ambiente = dict(os.environ, ENABLE_CLAUDEAI_MCP_SERVERS="false")
     try:
-        esito = subprocess.run(comando, cwd=CARTELLA, capture_output=True, text=True,
+        esito = subprocess.run(comando, cwd=CARTELLA, env=ambiente, input=testo,
+                               capture_output=True, text=True,
                                timeout=TEMPO_MASSIMO_CLAUDE, check=False)
     except subprocess.TimeoutExpired:
         return "Claude ci sta mettendo troppo: ho lasciato perdere. Riprova con una richiesta più piccola."
@@ -133,20 +179,99 @@ def chiedi_a_claude(testo, continua):
         return "Sulla macchina non trovo il comando claude."
     if esito.returncode != 0:
         errore = (esito.stderr or esito.stdout).strip()
+        if "not logged in" in errore.lower():
+            return ("Su questa macchina Claude non ha ancora fatto il login.\n"
+                    "Entra in SSH come agente e scrivi: claude auth login\n"
+                    "Poi riscrivimi qui.")
         return f"Claude si è fermato con un errore:\n{errore[-1500:]}"
     return esito.stdout
 
 
 def stato_macchina():
-    esito = subprocess.run(["tmux", "ls"], capture_output=True, text=True, check=False)
-    if esito.returncode != 0:
+    """Le sessioni di tmux accese, una per riga, con il loro nome."""
+    esito = subprocess.run(["tmux", "ls", "-F", "#{session_name}"],
+                           capture_output=True, text=True, check=False)
+    nomi = [riga.strip() for riga in esito.stdout.splitlines() if riga.strip()]
+    if esito.returncode != 0 or not nomi:
         return "Nessuna sessione accesa."
-    return "Sessioni accese:\n" + esito.stdout.strip()
+    return f"Sessioni accese: {len(nomi)}\n" + "\n".join(f"- {nome}" for nome in nomi)
+
+
+def proprieta(unita, *nomi):
+    """Chiede a systemd alcune proprietà di un'unità dell'utente."""
+    comando = ["systemctl", "--user", "show", unita]
+    for nome in nomi:
+        comando += ["-p", nome]
+    esito = subprocess.run(comando, capture_output=True, text=True, check=False)
+    valori = {}
+    for riga in esito.stdout.splitlines():
+        chiave, separatore, valore = riga.partition("=")
+        if separatore:
+            valori[chiave] = valore.strip()
+    return valori
+
+
+def quando(testo):
+    """Da "Wed 2026-11-18 08:30:00 UTC" a "2026-11-18 08:30". Vuoto se non c'è."""
+    trovato = re.search(r"(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})", testo or "")
+    return f"{trovato.group(1)} {trovato.group(2)}" if trovato else ""
+
+
+def lavori_programmati():
+    """I lavori che partono da soli: acceso o spento, prossima partenza, ultimo esito.
+
+    Guarda i timer dell'utente, quelli in ~/.config/systemd/user. Un lavoro
+    programmato in un altro modo, per esempio con cron, qui non compare.
+    """
+    timer = sorted(LAVORI.glob("*.timer")) if LAVORI.is_dir() else []
+    if not timer:
+        return ("Nessun lavoro programmato fra quelli dell'utente agente.\n"
+                "Se ne hai creato uno in un altro modo, chiedi al boss dove sta.")
+    righe = [f"Lavori programmati: {len(timer)}"]
+    for file in timer:
+        nome = file.name[:-len(".timer")]
+        del_timer = proprieta(file.name, "ActiveState", "NextElapseUSecRealtime", "Unit")
+        servizio = del_timer.get("Unit") or f"{nome}.service"
+        del_lavoro = proprieta(servizio, "Result", "ExecMainExitTimestamp")
+        if del_timer.get("ActiveState") == "active":
+            prossima = quando(del_timer.get("NextElapseUSecRealtime"))
+            riga = f"- {nome}: acceso" + (f", prossima partenza {prossima}" if prossima else "")
+        else:
+            riga = f"- {nome}: spento, non parte da solo"
+        finito = quando(del_lavoro.get("ExecMainExitTimestamp"))
+        if finito:
+            esito = "riuscito" if del_lavoro.get("Result") == "success" else "fallito"
+            riga += f". Ultima volta {finito}: {esito}"
+        else:
+            riga += ". Non è ancora partito da quando la macchina è accesa"
+        righe.append(riga)
+    return "\n".join(righe)
 
 
 def rispondi(token, chat, testo):
     for pezzo in a_pezzi(testo):
         chiama_telegram(token, "sendMessage", {"chat_id": chat, "text": pezzo})
+
+
+def togli_attesa(token, chat, messaggio_di_attesa):
+    """Toglie il messaggio di attesa, dopo che la risposta è arrivata.
+
+    La risposta è un messaggio nuovo, così il telefono suona quando arriva.
+    Se Telegram non toglie l'attesa, resta lì: non è un guaio.
+    """
+    numero_messaggio = (messaggio_di_attesa or {}).get("message_id")
+    if numero_messaggio is None:
+        return
+    try:
+        chiama_telegram(token, "deleteMessage", {"chat_id": chat, "message_id": numero_messaggio})
+    except (urllib.error.URLError, TimeoutError, OSError, RuntimeError):
+        pass
+
+
+def pubblica_comandi(token):
+    """Manda a Telegram l'elenco dei comandi: nella chat compaiono toccando "/"."""
+    elenco = [{"command": nome, "description": descrizione} for nome, descrizione in COMANDI]
+    chiama_telegram(token, "setMyCommands", {"commands": json.dumps(elenco)})
 
 
 def avvisa(token, testo):
@@ -178,6 +303,21 @@ def aggiungi_alla_lista(numero, nome):
     with open(FILE_CHAT, "a") as file:
         file.write(f"{numero}  # {nome}\n")
     os.chmod(FILE_CHAT, 0o600)
+
+
+def segna_tutto_letto(token, prossimo):
+    """Segna come letti i messaggi arrivati durante l'attivazione.
+
+    Telegram manda /start appena si apre il bot, e chi aspetta la domanda del
+    terminale spesso scrive ancora. Quello che resta in coda il gateway lo
+    passerebbe a Claude appena acceso: qui si svuota la coda, un giro alla
+    volta, finché Telegram non ha più niente.
+    """
+    for _ in range(20):
+        rimasti = chiama_telegram(token, "getUpdates", {"offset": prossimo, "timeout": 0})
+        if not rimasti:
+            return
+        prossimo = rimasti[-1]["update_id"] + 1
 
 
 def attiva(chiedi_segreto=getpass.getpass, chiedi=input, attesa_massima=180):
@@ -244,9 +384,8 @@ def attiva(chiedi_segreto=getpass.getpass, chiedi=input, attesa_massima=180):
                 print("Lasciato fuori. Aspetto il tuo messaggio...", flush=True)
                 continue
             aggiungi_alla_lista(numero, nome)
-            # Il messaggio di prova si segna come letto: il gateway non lo passerà a Claude.
-            chiama_telegram(token, "getUpdates", {"offset": prossimo, "timeout": 0})
-            rispondi(token, numero, "Fatto: da adesso rispondo solo a te. Prova a scrivermi /stato")
+            segna_tutto_letto(token, prossimo)
+            rispondi(token, numero, "Fatto: da adesso rispondo solo a te. Scrivimi /aiuto per vedere cosa puoi chiedermi.")
             print(f"La chat {numero} è nella lista: il bot risponde solo a te.")
             return
     sys.exit("Non è arrivato nessun messaggio. Rilancia telegram-attiva quando hai Telegram aperto.")
@@ -272,18 +411,34 @@ def gestisci(token, messaggio, stato, chi_sono=False):
     if not testo:
         rispondi(token, numero, "Per ora leggo solo i messaggi di testo.")
         return "non-testo"
-    if testo == "/stato":
-        rispondi(token, numero, stato_macchina())
-        return "stato"
-    if testo in ("/nuova", "/start"):
-        stato["continua"] = False
-        rispondi(token, numero, "Pronto. La prossima richiesta comincia una conversazione nuova.")
-        return "nuova"
+    if testo.startswith("/"):
+        # Un comando: la prima parola, senza il nome del bot che Telegram a volte aggiunge.
+        comando = testo.split()[0].split("@")[0].lower()
+        if comando == "/stato":
+            rispondi(token, numero, stato_macchina())
+            return "stato"
+        if comando == "/lavori":
+            rispondi(token, numero, lavori_programmati())
+            return "lavori"
+        if comando == "/nuova":
+            stato["continua"] = False
+            rispondi(token, numero, "Pronto. La prossima richiesta comincia una conversazione nuova.")
+            return "nuova"
+        if comando in ("/aiuto", "/start", "/help"):
+            rispondi(token, numero, AIUTO)
+            return "aiuto"
+        rispondi(token, numero, f"Non conosco il comando {comando}.\n\n{AIUTO}")
+        return "sconosciuto"
 
+    # Claude ci mette qualche secondo: intanto chi scrive vede che il bot c'è.
+    # L'attesa arriva senza suono: a suonare sarà la risposta.
+    in_attesa = chiama_telegram(token, "sendMessage",
+                                {"chat_id": numero, "text": ATTESA, "disable_notification": "true"})
     chiama_telegram(token, "sendChatAction", {"chat_id": numero, "action": "typing"})
     risposta = chiedi_a_claude(testo, stato.get("continua", False))
     stato["continua"] = True
     rispondi(token, numero, risposta)
+    togli_attesa(token, numero, in_attesa)
     return "claude"
 
 
@@ -291,6 +446,12 @@ def gira(token, chi_sono=False):
     stato = {"continua": False}
     prossimo = None
     print("Gateway acceso. Per fermarlo: Ctrl+C.", flush=True)
+    if not chi_sono:
+        try:
+            pubblica_comandi(token)
+        except (urllib.error.URLError, TimeoutError, OSError, RuntimeError) as errore:
+            # Senza menu il bot funziona lo stesso: i comandi si scrivono a mano.
+            print(f"Menu dei comandi non aggiornato ({type(errore).__name__}).", flush=True)
     while True:
         parametri = {"timeout": ATTESA_TELEGRAM, "allowed_updates": json.dumps(["message"])}
         if prossimo is not None:

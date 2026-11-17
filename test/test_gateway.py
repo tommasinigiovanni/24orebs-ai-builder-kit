@@ -6,6 +6,7 @@ Uso: python3 -m unittest discover -s test -p 'test_*.py'
 
 import contextlib
 import io
+import json
 import os
 import sys
 import tempfile
@@ -31,10 +32,14 @@ class ProvaGateway(unittest.TestCase):
         self.file_chat.write_text("# la mia chat\n111\n")
         self.chiamate = []
         self.richieste = []
+        self.risposte_telegram = {}  # metodo -> cosa restituisce, o l'errore che solleva
 
         def telegram_finto(token, metodo, parametri, attesa=30):
             self.chiamate.append((metodo, parametri))
-            return {}
+            esito = self.risposte_telegram.get(metodo, {})
+            if isinstance(esito, Exception):
+                raise esito
+            return esito
 
         def claude_finto(testo, continua):
             self.richieste.append((testo, continua))
@@ -75,8 +80,57 @@ class ProvaGateway(unittest.TestCase):
         esito = gateway.gestisci("t", messaggio(111, "che ore sono?"), stato)
         self.assertEqual(esito, "claude")
         self.assertEqual(self.richieste, [("che ore sono?", False)])
-        self.assertEqual(self.inviati(), ["risposta a: che ore sono?"])
+        self.assertEqual(self.inviati(), [gateway.ATTESA, "risposta a: che ore sono?"])
         self.assertTrue(stato["continua"])
+
+    def test_l_attesa_non_suona_e_sparisce_dopo_la_risposta(self):
+        self.risposte_telegram["sendMessage"] = {"message_id": 77}
+        gateway.gestisci("t", messaggio(111, "che ore sono?"), {})
+        mandati = [p for m, p in self.chiamate if m == "sendMessage"]
+        self.assertEqual(mandati[0], {"chat_id": 111, "text": gateway.ATTESA, "disable_notification": "true"})
+        # La risposta è un messaggio nuovo e senza silenziatore: il telefono suona.
+        self.assertEqual(mandati[1], {"chat_id": 111, "text": "risposta a: che ore sono?"})
+        metodi = [m for m, _ in self.chiamate]
+        self.assertEqual(metodi[-1], "deleteMessage")
+        self.assertEqual(self.chiamate[-1][1], {"chat_id": 111, "message_id": 77})
+
+    def test_se_l_attesa_non_si_toglie_la_risposta_e_arrivata_lo_stesso(self):
+        self.risposte_telegram["sendMessage"] = {"message_id": 77}
+        self.risposte_telegram["deleteMessage"] = RuntimeError("no")
+        self.assertEqual(gateway.gestisci("t", messaggio(111, "che ore sono?"), {}), "claude")
+        self.assertEqual(self.inviati(), [gateway.ATTESA, "risposta a: che ore sono?"])
+
+    def test_start_e_aiuto_dicono_cosa_si_puo_chiedere(self):
+        for testo in ("/start", "/aiuto", "/help"):
+            self.chiamate.clear()
+            self.assertEqual(gateway.gestisci("t", messaggio(111, testo), {}), "aiuto")
+            for comando, _ in gateway.COMANDI:
+                self.assertIn(f"/{comando}", self.inviati()[0])
+        self.assertEqual(self.richieste, [])
+
+    def test_comando_sconosciuto_non_va_a_claude(self):
+        self.assertEqual(gateway.gestisci("t", messaggio(111, "/cancella tutto"), {}), "sconosciuto")
+        self.assertEqual(self.richieste, [])
+        self.assertIn("/cancella", self.inviati()[0])
+        self.assertIn("/stato", self.inviati()[0])
+
+    def test_comando_con_il_nome_del_bot(self):
+        with mock.patch.object(gateway, "stato_macchina", lambda: "Nessuna sessione accesa."):
+            self.assertEqual(gateway.gestisci("t", messaggio(111, "/STATO@prova_bot"), {}), "stato")
+
+    def test_lavori_non_passa_da_claude(self):
+        with mock.patch.object(gateway, "lavori_programmati", lambda: "Lavori programmati: 0"):
+            self.assertEqual(gateway.gestisci("t", messaggio(111, "/lavori"), {}), "lavori")
+        self.assertEqual(self.richieste, [])
+        self.assertEqual(self.inviati(), ["Lavori programmati: 0"])
+
+    def test_il_menu_dei_comandi_va_a_telegram(self):
+        gateway.pubblica_comandi("t")
+        metodo, parametri = self.chiamate[-1]
+        self.assertEqual(metodo, "setMyCommands")
+        elenco = json.loads(parametri["commands"])
+        self.assertEqual([voce["command"] for voce in elenco], ["stato", "lavori", "nuova", "aiuto"])
+        self.assertTrue(all(voce["description"] for voce in elenco))
 
     def test_secondo_messaggio_continua_la_conversazione(self):
         stato = {"continua": False}
@@ -308,6 +362,129 @@ class ProvaAttivazione(unittest.TestCase):
         self.assertEqual(gateway.leggi_chat_ammesse(), set())
         # Il token buono resta: al secondo giro non va incollato di nuovo.
         self.assertTrue(self.file_token.exists())
+
+    def test_i_messaggi_arrivati_durante_la_conferma_si_segnano_letti(self):
+        # Telegram manda /start appena si apre il bot; chi poi scrive anche
+        # "ciao" mentre il terminale chiede "Sei tu?" lascia un messaggio in
+        # coda. Senza questa pulizia il gateway lo passava a Claude.
+        self.in_arrivo = [[novita(111, update=10)], [novita(111, update=11)],
+                          [novita(111, update=12)], []]
+        self.attiva()
+        letture = [p for m, p in self.chiamate if m == "getUpdates" and p.get("timeout") == 0]
+        self.assertEqual([p["offset"] for p in letture], [11, 12, 13])
+        self.assertEqual(gateway.leggi_chat_ammesse(), {111})
+
+
+class ProvaStato(unittest.TestCase):
+    """/stato e /lavori: cosa legge il gateway dalla macchina."""
+
+    def comando_finto(self, codice, uscita=""):
+        return mock.patch.object(gateway.subprocess, "run",
+                                 return_value=mock.Mock(returncode=codice, stdout=uscita, stderr=""))
+
+    def test_stato_elenca_le_sessioni_per_nome(self):
+        with self.comando_finto(0, "boss\nsistema\n"):
+            self.assertEqual(gateway.stato_macchina(), "Sessioni accese: 2\n- boss\n- sistema")
+
+    def test_stato_senza_sessioni(self):
+        with self.comando_finto(1):
+            self.assertEqual(gateway.stato_macchina(), "Nessuna sessione accesa.")
+
+    def test_proprieta_legge_le_righe_di_systemd(self):
+        with self.comando_finto(0, "ActiveState=active\nNextElapseUSecRealtime=Wed 2026-11-18 08:30:00 UTC\n") as lancio:
+            valori = gateway.proprieta("pulizia.timer", "ActiveState", "NextElapseUSecRealtime")
+        self.assertEqual(valori["ActiveState"], "active")
+        self.assertEqual(gateway.quando(valori["NextElapseUSecRealtime"]), "2026-11-18 08:30")
+        self.assertEqual(lancio.call_args.args[0][:4], ["systemctl", "--user", "show", "pulizia.timer"])
+
+    def test_quando_senza_data_resta_vuoto(self):
+        self.assertEqual(gateway.quando(""), "")
+        self.assertEqual(gateway.quando("n/a"), "")
+
+    def lavori(self, nomi, risposte):
+        with tempfile.TemporaryDirectory() as cartella:
+            for nome in nomi:
+                (Path(cartella) / f"{nome}.timer").write_text("")
+            (Path(cartella) / "altro.service").write_text("")
+            with mock.patch.object(gateway, "LAVORI", Path(cartella)), \
+                 mock.patch.object(gateway, "proprieta", lambda unita, *nomi: risposte.get(unita, {})):
+                return gateway.lavori_programmati()
+
+    def test_lavori_acceso_e_riuscito(self):
+        testo = self.lavori(["pulizia"], {
+            "pulizia.timer": {"ActiveState": "active", "Unit": "pulizia.service",
+                              "NextElapseUSecRealtime": "Wed 2026-11-18 02:00:00 UTC"},
+            "pulizia.service": {"Result": "success", "ExecMainExitTimestamp": "Tue 2026-11-17 02:00:09 UTC"}})
+        self.assertEqual(testo, "Lavori programmati: 1\n- pulizia: acceso, prossima partenza 2026-11-18 02:00. "
+                                "Ultima volta 2026-11-17 02:00: riuscito")
+
+    def test_lavori_fallito_si_vede(self):
+        testo = self.lavori(["pulizia"], {
+            "pulizia.timer": {"ActiveState": "active", "Unit": "pulizia.service"},
+            "pulizia.service": {"Result": "exit-code", "ExecMainExitTimestamp": "Tue 2026-11-17 02:00:09 UTC"}})
+        self.assertIn("fallito", testo)
+        self.assertNotIn("riuscito", testo)
+
+    def test_lavori_spento_e_mai_partito(self):
+        testo = self.lavori(["report-corso"], {"report-corso.timer": {"ActiveState": "inactive"}})
+        self.assertIn("report-corso: spento, non parte da solo", testo)
+        self.assertIn("Non è ancora partito", testo)
+
+    def test_lavori_nessuno(self):
+        self.assertIn("Nessun lavoro programmato", self.lavori([], {}))
+
+    def test_lavori_senza_la_cartella(self):
+        with mock.patch.object(gateway, "LAVORI", Path("/cartella/che/non/esiste")):
+            self.assertIn("Nessun lavoro programmato", gateway.lavori_programmati())
+
+
+class ProvaClaude(unittest.TestCase):
+    """Cosa torna a Telegram quando Claude non può rispondere."""
+
+    def setUp(self):
+        self.cartella = tempfile.TemporaryDirectory()
+        finto = mock.patch.object(gateway, "CARTELLA", Path(self.cartella.name))
+        finto.start()
+        self.addCleanup(finto.stop)
+        self.addCleanup(self.cartella.cleanup)
+
+    def chiedi(self, codice, uscita="", errore=""):
+        esito = mock.Mock(returncode=codice, stdout=uscita, stderr=errore)
+        with mock.patch.object(gateway.subprocess, "run", return_value=esito):
+            return gateway.chiedi_a_claude("ciao", False)
+
+    def test_senza_login_dice_cosa_fare(self):
+        risposta = self.chiedi(1, uscita="Not logged in · Please run /login")
+        self.assertIn("claude auth login", risposta)
+        self.assertNotIn("/login", risposta.replace("claude auth login", ""))
+
+    def test_un_altro_errore_resta_leggibile(self):
+        risposta = self.chiedi(1, errore="disco pieno")
+        self.assertIn("disco pieno", risposta)
+
+    def test_risposta_buona_passa_intera(self):
+        self.assertEqual(self.chiedi(0, uscita="eccomi"), "eccomi")
+
+    def test_claude_parte_senza_connettori_e_con_il_testo_semplice(self):
+        esito = mock.Mock(returncode=0, stdout="eccomi", stderr="")
+        with mock.patch.object(gateway.subprocess, "run", return_value=esito) as lancio:
+            gateway.chiedi_a_claude("ciao", True)
+        comando = lancio.call_args.args[0]
+        self.assertEqual(comando[:2], ["claude", "-p"])
+        # Il testo passa dall'ingresso, non dalla riga di comando.
+        self.assertNotIn("ciao", comando)
+        self.assertEqual(lancio.call_args.kwargs["input"], "ciao")
+        self.assertIn("--continue", comando)
+        istruzioni = comando[comando.index("--append-system-prompt") + 1]
+        self.assertIn("Markdown", istruzioni)
+        # Da Telegram solo strumenti di lettura, sui progetti, e mai sui segreti.
+        self.assertEqual(comando[comando.index("--tools") + 1], "Read,Glob,Grep")
+        self.assertEqual(comando[comando.index("--add-dir") + 1], str(gateway.LETTURA))
+        self.assertEqual(comando[comando.index("--disallowedTools") + 1], "Read(~/segreti/**)")
+        for vietato in ("Bash", "Edit", "Write"):
+            self.assertNotIn(vietato, comando[comando.index("--tools") + 1])
+        # I connettori dell'account claude.ai restano fuori dal canale Telegram.
+        self.assertEqual(lancio.call_args.kwargs["env"]["ENABLE_CLAUDEAI_MCP_SERVERS"], "false")
 
 
 if __name__ == "__main__":
