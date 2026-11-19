@@ -24,7 +24,7 @@ telegram_24ore() {
 }
 
 plancia_24ore() {
-  local versione=v1.2 impronta=7a2dbd9acc72a8ac2c7aaa0bdd9fa2364edadb0e49fef3779124680ec6a1af97
+  local versione=v1.3 impronta=6ee86fe8d5fb3b96f4335997d410a80b964bd84fdc6689f289deab64e3314ca1
   local destinazione=/opt/session-board temporanea ip nome configurazione
   configurazione="$CASA/.config/session-board"
   # Un flusso comune già eseguibile, poi adattabile con Claude. Il rilancio del
