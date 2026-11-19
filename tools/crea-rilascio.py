@@ -32,7 +32,7 @@ def archivio(versione):
 
 def main():
     if len(sys.argv) != 2 or not re.fullmatch(r'v\d+\.\d+(\.\d+)?(-[a-z0-9]+)?', sys.argv[1]):
-        raise SystemExit('Uso: python3 tools/crea-rilascio.py v1.2')
+        raise SystemExit('Uso: python3 tools/crea-rilascio.py v1.3')
     verifica()
     version = sys.argv[1]
     dist = ROOT/'dist'

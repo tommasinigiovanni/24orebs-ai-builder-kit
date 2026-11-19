@@ -67,7 +67,7 @@ Il firewall si crea prima della VM, così la macchina nasce già protetta.
 
 1. Crea un server con immagine ufficiale **Ubuntu 24.04**. Per la prima prova usiamo questa versione; evita immagini personalizzate o snapshot.
 2. Seleziona la tua chiave nella sezione **SSH keys**.
-3. Nel campo **cloud-init** incolla il contenuto del file `cloud-init-v1.2.yaml` fornito dal docente. Usa il file della release AI Builder indicata dal docente.
+3. Nel campo **cloud-init** incolla il contenuto del file `cloud-init-v1.3.yaml` fornito dal docente. Usa il file della release AI Builder indicata dal docente.
 4. Nella sezione dei firewall seleziona quello che hai appena creato. Un firewall che non è selezionato qui non protegge la VM.
 5. Attiva il backup del fornitore se previsto per la tua esercitazione e crea il server. Hetzner fattura le risorse finché esistono, anche se il server è spento.
 6. Annota l’IPv4 pubblico e attendi l’installazione: vedere la VM accesa non significa che cloud-init abbia terminato.

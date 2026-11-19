@@ -18,7 +18,7 @@ jobs:
           sudo install -m 600 "$RUNNER_TEMP/chiave-corso.pub" /root/.ssh/authorized_keys
           sudo mkdir -p /opt/agenti-kit
           sudo cp -r install.sh bin boss console macchina profili test /opt/agenti-kit/
-          echo v1.2-prova | sudo tee /opt/agenti-kit/VERSIONE
+          echo v1.3-prova | sudo tee /opt/agenti-kit/VERSIONE
       - name: Installa il profilo completo
         run: sudo env AGENTI_IPV4_PUBBLICO=203.0.113.10 bash /opt/agenti-kit/install.sh
       - name: Accesso reale, sudo, sessione persistente e dashboard

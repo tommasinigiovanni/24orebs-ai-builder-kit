@@ -27,7 +27,7 @@ Per i primi concetti: [schema PC, SSH, tmux e server](guide/pc-server-tmux.png).
 
 - Claude Code, tmux, Git e i comandi `aiuto` e `salute`.
 - Account agente con le chiavi pubbliche selezionate in Hetzner e accesso root con la stessa chiave. Autenticazione SSH con password disabilitata.
-- Dashboard portable v1.2, verificata con SHA256, eseguita come agente e raggiungibile via Caddy all’indirizzo `https://IP-con-trattini.sslip.io`.
+- Dashboard portable v1.3, verificata con SHA256, eseguita come agente e raggiungibile via Caddy all’indirizzo `https://IP-con-trattini.sslip.io`.
 - Un esempio già eseguibile in `~/progetti/report-settimanale`, con dati fittizi e risultato verificabile. Il timer è predisposto ma spento.
 - Un gateway Telegram già copiato in `~/progetti/telegram`, spento: risponde solo alle chat della tua lista. Dal telefono vedi le sessioni accese e i lavori programmati, e puoi chiedere a Claude cosa c’è nei tuoi progetti: legge, non cambia file e non lancia comandi. Il comando `avvisa "testo"` manda un messaggio dalla macchina al telefono.
 - Codex e Syncthing disponibili come strumenti facoltativi del kit.
@@ -40,20 +40,22 @@ Hindsight non fa parte di questa versione.
 
 ## Download
 
-La [release v1.2](https://github.com/tommasinigiovanni/24orebs-ai-builder-kit/releases/tag/v1.2)
+La [release v1.3](https://github.com/tommasinigiovanni/24orebs-ai-builder-kit/releases/tag/v1.3)
 contiene archivio del kit, impronta SHA256, cloud-init e ZIP con le guide per
 gli studenti. Il kit è destinato a VM nuove. La v1.1 è stata provata su una VM
-Hetzner nuova, con un bot Telegram vero e un riavvio. La v1.2 corregge quello
-che quella prova ha trovato e rende il bot più usabile: ha superato le prove
-automatiche del repository, e il suo gateway è stato provato su quella stessa
-VM.
+Hetzner nuova, con un bot Telegram vero e un riavvio. La v1.2 ha corretto
+quello che quella prova aveva trovato e ha reso il bot più usabile. La v1.3
+porta la dashboard v1.3: mostra per intero i comandi e gli script eseguiti da
+Claude, nascondendo solo le credenziali riconosciute, ha la chat più larga e
+su ogni sessione dice quando Claude ha risposto l’ultima volta. Ha superato le
+prove automatiche del repository.
 
 ## Verifiche e compilazione della release
 
 ```bash
 python3 tools/pubblicazione.py
 python3 -m unittest discover -s test -p 'test_*.py' -v
-python3 tools/crea-rilascio.py v1.2
+python3 tools/crea-rilascio.py v1.3
 ```
 
 I controlli verificano l’elenco dei file pubblicabili e il contenuto degli
