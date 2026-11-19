@@ -229,11 +229,35 @@ lui propone come farlo, tu leggi e dai l’ok.
 
 Scegli il lavoro. Può essere quello della tua cartella, lo strumento che
 pulisce i fogli visto nel modulo sui dati, oppure l’esempio pronto in
-`~/progetti/report-settimanale`. Apri una sessione nella sua cartella e scrivi
-a Claude, adattando la prima frase al tuo lavoro:
+`~/progetti/report-settimanale`. Apri una sessione nella sua cartella.
+
+Prima descrivi il lavoro in quattro parti: cosa deve fare, come ti consegna il
+risultato, quando parte, cosa non deve mai fare. Scrivi a Claude, con le tue
+risposte al posto di quelle dell’esempio:
 
 ```text
-In questa cartella c'è un programma che prepara il riepilogo delle attività. Voglio che parta da solo ogni notte alle 2, come programma, senza una conversazione aperta. Prima dimmi cosa farai e dove scriverai il risultato, e aspetta il mio ok. Per provarlo fallo partire una volta fra due minuti. Poi scrivi nel CLAUDE.md di questa cartella cosa fa questo lavoro, quando parte e come si ferma.
+Scrivi nel CLAUDE.md di questa cartella queste quattro parti, e poi fammelo leggere.
+COSA: prepari il riepilogo delle attività con il programma riepilogo.py.
+COME: il risultato va nel file uscite/riepilogo.md.
+QUANDO: ogni notte alle 2, come programma, senza una conversazione aperta. Per adesso lo lancio io.
+LIMITI: leggi e scrivi solo in questa cartella, non cancelli niente, non usi sudo, non mandi niente fuori dalla macchina.
+```
+
+Leggi quello che propone. I limiti contano più del resto: un lavoro che parte
+da solo non ha nessuno che legge i permessi.
+
+Poi fallo girare una volta a mano:
+
+```text
+Fallo adesso, una volta, e dimmi cosa hai prodotto.
+```
+
+Apri il risultato e controllalo: che sia partito non basta. Se non ti torna,
+correggi il `CLAUDE.md`, non il risultato. Quando ti torna bene tre volte di
+fila, fallo partire da solo:
+
+```text
+Adesso fallo partire da solo ogni notte alle 2, come dice il CLAUDE.md. Prima dimmi come lo fai e aspetta il mio ok. Per provarlo fallo partire una volta fra due minuti.
 ```
 
 Leggi il piano prima di dire ok. tmux tiene accesa una sessione; il timer che
@@ -298,7 +322,7 @@ avvisa "Prova dalla mia macchina"
 - **La dashboard non si apre:** controlla di aver completato `plancia-attiva` e che nel firewall siano aperte le porte TCP 80 e 443. Poi chiedi a Claude: «La dashboard non si apre: controlla il servizio session-board e Caddy e dimmi perché».
 - **Ctrl+B e D non funziona:** sono due gesti, non tre tasti insieme. Tieni premuto Ctrl, premi B, rilascia tutti e due, poi premi D. tmux risponde `detached`.
 - **tmux risponde duplicate session:** non è un errore, la sessione con quel nome esiste già. Guardala con `tmux ls` e rientra con `tmux attach -t boss`.
-- **Hai scritto exit dentro Claude:** quella sessione si è spenta. Da Claude non si esce: ci si stacca con Ctrl+B e D, e lui resta a lavorare. Riaprila con `claude -r boss`.
+- **Hai scritto exit dentro Claude:** quella sessione si è spenta. Da Claude non si esce: ci si stacca con Ctrl+B e D, e lui resta a lavorare. Riaprila con `claude -r boss --rc`.
 - **Il bot non risponde:** controlla di essere nella lista rilanciando `telegram-attiva`. Se la lista è a posto, chiedi a Claude: «Il gateway Telegram non risponde: guarda il suo registro e dimmi perché».
 - **avvisa dice che manca il token:** il bot non è ancora attivato. Lancia `telegram-attiva`.
 - **tmux non trova boss dopo un riavvio:** crea una nuova sessione, entra in `~/boss` e usa `claude -r boss --rc`.
